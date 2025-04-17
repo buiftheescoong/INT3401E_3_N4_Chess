@@ -261,14 +261,6 @@ bpiece_values = {
     chess.QUEEN: [BQUEEN_MG, BQUEEN_EG],
     chess.KING: [BKING_MG, BKING_EG]
 }
-piece_values = {
-    chess.PAWN: 100,
-    chess.KNIGHT: 320,
-    chess.BISHOP: 330,
-    chess.ROOK: 500,
-    chess.QUEEN: 900,
-    chess.KING: 0
-}
 
 mobility_weights = {
     chess.PAWN: 0.5,
@@ -302,14 +294,6 @@ def game_phase(board: chess.Board):
         phase += len(board.pieces(piece, chess.WHITE)) * w
         phase += len(board.pieces(piece, chess.BLACK)) * w
     return min(1.0, phase / max_phase)
-
-# MATERIAL
-def eval_material(board: chess.Board):
-    score = 0
-    for piece_type, value in piece_values.items():
-        score += len(board.pieces(piece_type, chess.WHITE)) * value
-        score -= len(board.pieces(piece_type, chess.BLACK)) * value
-    return score
 
 # PST
 def eval_pst(board: chess.Board):
@@ -424,16 +408,15 @@ def evaluate(board: chess.Board):
     if board.is_checkmate(): return MATE_SCORE*( -1 if board.turn else 1)
     if board.is_stalemate() or board.is_insufficient_material() or board.is_fivefold_repetition(): return 0
     total=0
-    total+=eval_material(board)
     total+=eval_pst(board)
-    total+=W_MOBILITY*eval_mobility(board)
-    total+=W_KING_SAFETY*eval_king_safety(board)
-    total+=eval_pawn_structure(board)
-    total+=eval_bishop_pair(board)
-    total+=W_CENTER_CONTROL*eval_center_control(board)
-    total+=eval_rook_open(board)
-    total+=eval_outposts(board)
-    total+=eval_tropism(board)
-    total+=eval_space(board)
-    total+=eval_threats(board)
+    # total+=W_MOBILITY*eval_mobility(board)
+    # total+=W_KING_SAFETY*eval_king_safety(board)
+    # total+=eval_pawn_structure(board)
+    # total+=eval_bishop_pair(board)
+    # total+=W_CENTER_CONTROL*eval_center_control(board)
+    # total+=eval_rook_open(board)
+    # total+=eval_outposts(board)
+    # total+=eval_tropism(board)
+    # total+=eval_space(board)
+    # total+=eval_threats(board)
     return total
