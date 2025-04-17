@@ -270,34 +270,31 @@ piece_values = {
     chess.KING: 0
 }
 
-# Weights for new evaluation components
+# Weights for evaluation components
 W_MOBILITY = 5
 W_KING_SAFETY = 10
 W_PAWN_STRUCTURE = 15
 W_BISHOP_PAIR = 40
 W_CENTER_CONTROL = 20
+W_PAWN_SHELTER = 12
+W_ROOK_OPEN = 15
+W_OUTPOST = 8
+W_TROPISM = 5
+W_SPACE = 3
+W_THREAT = 10
 
-# Determine midgame vs endgame phase (0 = EG, 1 = MG)
+# GAME PHASE
 def game_phase(board: chess.Board):
-    """
-    Determine phase of game: returns 1.0 for full midgame and 0.0 for full endgame.
-    Based on weighted counts of queens, rooks, bishops, knights.
-    """
-    # Weight per piece type
     phase_weights = {chess.QUEEN: 4, chess.ROOK: 2, chess.BISHOP: 1, chess.KNIGHT: 1}
-    # Maximum counts per side for each piece
     max_counts = {chess.QUEEN: 1, chess.ROOK: 2, chess.BISHOP: 2, chess.KNIGHT: 2}
-    # Compute max possible phase (both sides)
-    max_phase = sum(w * max_counts[p] * 2 for p, w in phase_weights.items())
-    # Sum current weighted piece counts
+    max_phase = sum(phase_weights[p] * max_counts[p] * 2 for p in phase_weights)
     phase = 0
     for piece, w in phase_weights.items():
         phase += len(board.pieces(piece, chess.WHITE)) * w
         phase += len(board.pieces(piece, chess.BLACK)) * w
-    # Normalize to [0,1]
     return min(1.0, phase / max_phase)
 
-# Material evaluation
+# MATERIAL
 def eval_material(board: chess.Board):
     score = 0
     for piece_type, value in piece_values.items():
@@ -305,7 +302,7 @@ def eval_material(board: chess.Board):
         score -= len(board.pieces(piece_type, chess.BLACK)) * value
     return score
 
-# PST evaluation
+# PST
 def eval_pst(board: chess.Board):
     mg = game_phase(board)
     eg = 1 - mg
@@ -315,69 +312,111 @@ def eval_pst(board: chess.Board):
         pst_mg, pst_eg = arrays[piece.piece_type]
         idx = sq if piece.color else chess.square_mirror(sq)
         score += (pst_mg[idx] * mg + pst_eg[idx] * eg) * (1 if piece.color else -1)
-    # Normalize by combined scalar
     return score / (5255 + 435)
 
-# Mobility: count legal moves difference
+# MOBILITY
 def eval_mobility(board: chess.Board):
-    white_moves = sum(1 for m in board.legal_moves if board.color_at(m.from_square) == chess.WHITE)
-    black_moves = sum(1 for m in board.legal_moves if board.color_at(m.from_square) == chess.BLACK)
-    return white_moves - black_moves
+    w_moves = sum(1 for m in board.legal_moves if board.color_at(m.from_square) == chess.WHITE)
+    b_moves = sum(1 for m in board.legal_moves if board.color_at(m.from_square) == chess.BLACK)
+    return w_moves - b_moves
 
-# King safety: count attacked squares around king
+# KING SAFETY: attacked neighbors + pawn shelter
 def eval_king_safety(board: chess.Board):
-    def unsafe_neighbors(color):
-        king_sq = board.king(color)
-        attacks = set(board.attacks(king_sq))
-        neighbors = chess.SquareSet(chess.square_ring(king_sq))
-        return sum(1 for sq in neighbors if sq in attacks)
-    return -(unsafe_neighbors(chess.WHITE) - unsafe_neighbors(chess.BLACK))
+    def attacked_neighbors(color):
+        k = board.king(color)
+        return sum(1 for sq in chess.SquareSet(chess.square_ring(k)) if sq in board.attackers(not color, sq))
+    def pawn_shelter(color):
+        kf = chess.square_file(board.king(color))
+        files = [kf-1, kf, kf+1]
+        return sum(len(board.pieces(chess.PAWN, color).intersection(chess.SquareSet([sq for f in files
+                   for sq in board.pieces(chess.PAWN, color) if chess.square_file(sq)==f]))) for color in [color])
+    return -(attacked_neighbors(chess.WHITE) - attacked_neighbors(chess.BLACK)) + \
+           W_PAWN_SHELTER * (pawn_shelter(chess.WHITE) - pawn_shelter(chess.BLACK))
 
-# Pawn structure: isolated, doubled, passed
+# PAWN STRUCTURE
 def eval_pawn_structure(board: chess.Board):
     def score_pawns(color):
-        s = 0
-        files = {f: [sq for sq in board.pieces(chess.PAWN, color) if chess.square_file(sq)==f] for f in range(8)}
-        for f, pawns in files.items():
-            if len(pawns) > 1: s -= W_PAWN_STRUCTURE  # doubled
-            if not any((f-1>=0 and files[f-1]) or (f+1<8 and files[f+1])): s -= W_PAWN_STRUCTURE  # isolated
-        # passed pawns
-        for sq in board.pieces(chess.PAWN, color):
-            f = chess.square_file(sq)
-            forward = (chess.WHITE if color else chess.BLACK)
-            if not any(chess.square_file(op_sq)==f and board.color_at(op_sq)==(not color)
-                       and ((forward==chess.WHITE and op_sq > sq) or (forward==chess.BLACK and op_sq < sq))
-                       for op_sq in board.pieces(chess.PAWN, not color)):
-                s += W_PAWN_STRUCTURE
+        s=0; files={f:[sq for sq in board.pieces(chess.PAWN,color) if chess.square_file(sq)==f] for f in range(8)}
+        for f,p in files.items():
+            if len(p)>1: s-=1
+            if not (files.get(f-1) or files.get(f+1)): s-=1
+            for sq in p:
+                if not any((chess.square_file(op)==f) and ((color==chess.WHITE and op>sq) or (color==chess.BLACK and op<sq))
+                           for op in board.pieces(chess.PAWN,not color)): s+=1
         return s
-    return score_pawns(chess.WHITE) - score_pawns(chess.BLACK)
+    return W_PAWN_STRUCTURE*(score_pawns(chess.WHITE) - score_pawns(chess.BLACK))
 
-# Bishop pair bonus
+# BISHOP PAIR
 def eval_bishop_pair(board: chess.Board):
-    return (len(board.pieces(chess.BISHOP, chess.WHITE))>=2) * W_BISHOP_PAIR - (len(board.pieces(chess.BISHOP, chess.BLACK))>=2) * W_BISHOP_PAIR
+    return W_BISHOP_PAIR*((len(board.pieces(chess.BISHOP,chess.WHITE))>1) - (len(board.pieces(chess.BISHOP,chess.BLACK))>1))
 
-# Center control: pawns and pieces controlling d4,e4,d5,e5
-CENTER_SQUARES = [chess.D4, chess.E4, chess.D5, chess.E5]
+# CENTER CONTROL
+CENTER=[chess.D4,chess.E4,chess.D5,chess.E5]
 def eval_center_control(board: chess.Board):
-    score = 0
-    for sq in CENTER_SQUARES:
-        attackers = board.attackers(chess.WHITE, sq)
-        defenders = board.attackers(chess.BLACK, sq)
-        score += len(attackers) - len(defenders)
-    return score
+    return sum(len(board.attackers(chess.WHITE,sq))-len(board.attackers(chess.BLACK,sq)) for sq in CENTER)
 
-# Final evaluation combining all components
+# ROOK ON OPEN/SEMI-OPEN
+def eval_rook_open(board: chess.Board):
+    s=0
+    for color in [chess.WHITE, chess.BLACK]:
+        for r in board.pieces(chess.ROOK,color):
+            f=chess.square_file(r);
+            if not any(chess.square_file(p)==f for p in board.pieces(chess.PAWN,True)): s += (1 if color==chess.WHITE else -1)
+    return W_ROOK_OPEN*s
+
+# OUTPOSTS
+OUTPOST_SQ=[chess.D5,chess.E5,chess.D4,chess.E4]
+def eval_outposts(board: chess.Board):
+    s=0
+    for color in [chess.WHITE, chess.BLACK]:
+        for sq in board.pieces(chess.KNIGHT,color)|board.pieces(chess.BISHOP,color):
+            if sq in OUTPOST_SQ and not any(chess.square_file(p)==chess.square_file(sq) for p in board.pieces(chess.PAWN,not color)):
+                s+= (1 if color==chess.WHITE else -1)
+    return W_OUTPOST*s
+
+# TROPISM (king attack potential)
+def eval_tropism(board: chess.Board):
+    ks={chess.WHITE:board.king(chess.WHITE), chess.BLACK:board.king(chess.BLACK)}
+    s=0
+    for color in [chess.WHITE, chess.BLACK]:
+        for p in board.piece_map().items():
+            if board.color_at(p[0])==color and p[1] in [chess.QUEEN,chess.ROOK,chess.BISHOP,chess.KNIGHT]:
+                dist=chess.square_distance(p[0],ks[not color])
+                s+= (W_TROPISM/dist if color==chess.WHITE else -W_TROPISM/dist)
+    return s
+
+# SPACE (control total squares)
+def eval_space(board: chess.Board):
+    s=0
+    for color in [chess.WHITE, chess.BLACK]:
+        controlled=set().union(*(board.attacks(piece) for piece in board.pieces_map() if board.color_at(piece)==color))
+        s+= (len(controlled) if color==chess.WHITE else -len(controlled))
+    return W_SPACE*s
+
+# THREATS & HANGING PIECES
+def eval_threats(board: chess.Board):
+    s=0
+    for sq,piece in board.piece_map().items():
+        if not board.is_attacked_by(not piece.color,sq): s+=0
+        elif board.is_attacked_by(not piece.color,sq) and not board.is_attacked_by(piece.color,sq):
+            s+= ( -W_THREAT if piece.color==chess.WHITE else W_THREAT)
+    return s
+
+# FINAL EVALUATE
 def evaluate(board: chess.Board):
-    if board.is_checkmate():
-        return MATE_SCORE * (-1 if board.turn else 1)
-    if board.is_stalemate() or board.is_insufficient_material():
-        return 0
-    total = 0
-    total += eval_material(board)
-    total += eval_pst(board)
-    total += W_MOBILITY * eval_mobility(board)
-    total += W_KING_SAFETY * eval_king_safety(board)
-    total += eval_pawn_structure(board)
-    total += eval_bishop_pair(board)
-    total += W_CENTER_CONTROL * eval_center_control(board)
+    if board.is_checkmate(): return MATE_SCORE*( -1 if board.turn else 1)
+    if board.is_stalemate() or board.is_insufficient_material() or board.is_fivefold_repetition(): return 0
+    total=0
+    total+=eval_material(board)
+    total+=eval_pst(board)
+    total+=W_MOBILITY*eval_mobility(board)
+    total+=W_KING_SAFETY*eval_king_safety(board)
+    total+=eval_pawn_structure(board)
+    total+=eval_bishop_pair(board)
+    total+=W_CENTER_CONTROL*eval_center_control(board)
+    total+=eval_rook_open(board)
+    total+=eval_outposts(board)
+    total+=eval_tropism(board)
+    total+=eval_space(board)
+    total+=eval_threats(board)
     return total
