@@ -270,6 +270,15 @@ piece_values = {
     chess.KING: 0
 }
 
+mobility_weights = {
+    chess.PAWN: 0.5,
+    chess.KNIGHT: 4.5,
+    chess.BISHOP: 3.0,
+    chess.ROOK: 2.5,
+    chess.QUEEN: 1.5,
+    chess.KING: 0.1
+}
+
 # Weights for evaluation components
 W_MOBILITY = 5
 W_KING_SAFETY = 10
@@ -316,9 +325,17 @@ def eval_pst(board: chess.Board):
 
 # MOBILITY
 def eval_mobility(board: chess.Board):
-    w_moves = sum(1 for m in board.legal_moves if board.color_at(m.from_square) == chess.WHITE)
-    b_moves = sum(1 for m in board.legal_moves if board.color_at(m.from_square) == chess.BLACK)
-    return w_moves - b_moves
+    w_score = 0.0
+    b_score = 0.0
+    for move in board.legal_moves:
+        ptype = board.piece_type_at(move.from_square)
+        w = mobility_weights.get(ptype, 0)
+        if board.color_at(move.from_square) == chess.WHITE:
+            w_score += w
+        else:
+            b_score += w
+    return w_score - b_score
+
 
 # KING SAFETY: attacked neighbors + pawn shelter
 def eval_king_safety(board: chess.Board):
@@ -360,7 +377,7 @@ def eval_rook_open(board: chess.Board):
     s=0
     for color in [chess.WHITE, chess.BLACK]:
         for r in board.pieces(chess.ROOK,color):
-            f=chess.square_file(r);
+            f=chess.square_file(r)
             if not any(chess.square_file(p)==f for p in board.pieces(chess.PAWN,True)): s += (1 if color==chess.WHITE else -1)
     return W_ROOK_OPEN*s
 
