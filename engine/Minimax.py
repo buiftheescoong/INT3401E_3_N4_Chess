@@ -1,5 +1,8 @@
 import chess
 
+from engine.heuristic import evaluate
+
+
 def evaluate_board(board):
     # giá trị mỗi quân cờ
     piece_values = {
@@ -24,7 +27,7 @@ def evaluate_board(board):
 
 def minimax (game, depth, isMaximizingPlayer):
     if depth == 0:
-        return -evaluate_board(game.board())
+        return -evaluate(game.board())
     newGameMoves = list(game.legal_moves)
     if isMaximizingPlayer:
         maxEvaluation = -float('inf')
