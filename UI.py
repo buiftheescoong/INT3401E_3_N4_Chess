@@ -45,7 +45,7 @@ FPS = 30
 
 # --- Trạng thái trò chơi ---
 game_state = "MENU" # MENU, PLAYING, GAME_OVER
-game_mode = None    # PVP, PVC, CVC
+game_mode = None    # PVP, PVC
 board = chess.Board() # Bàn cờ logic
 
 # --- Biến toàn cục ---
@@ -81,7 +81,7 @@ def load_piece_images():
              print("và chứa đủ 12 file ảnh quân cờ được đặt tên đúng (vd: wP.png, bN.png,...).")
              pygame.quit(); sys.exit()
 
-# --- Hàm vẽ ---
+# --- Hàm vẽ bàn cờ ---
 def draw_board(surface):
     """Vẽ các ô vuông sáng tối của bàn cờ."""
     for rank in range(8):
@@ -141,7 +141,7 @@ def draw_menu(surface):
     title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 4))
     surface.blit(title_text, title_rect)
 
-    button_texts = ["Player vs Player", "Player vs Computer", "Computer vs Computer"]
+    button_texts = ["Player vs Player", "Player vs Computer"]
     button_rects = []
     button_height = 60
     button_width = 350
@@ -275,12 +275,52 @@ def make_random_computer_move(current_board):
     """Thêm code"""
     return False # Trả về False nếu không có nước đi hợp lệ
 
+# --- Biến toàn cục cho đồng hồ ---
+WHITE_TIME = 15 * 60 * 1000  # 15 phút (ms)
+BLACK_TIME = 15 * 60 * 1000  # 15 phút (ms)
+white_timer = WHITE_TIME
+black_timer = BLACK_TIME
+last_timer_update = pygame.time.get_ticks()
+
+# --- Hàm vẽ đồng hồ ---
+def draw_timer(surface, time_left, is_top):
+    """Vẽ đồng hồ đếm ngược."""
+    minutes = time_left // 60000
+    seconds = (time_left % 60000) // 1000
+    timer_text = f"{minutes:02}:{seconds:02}"
+    timer_surf = MENU_FONT.render(timer_text, True, TEXT_COLOR)
+    timer_rect = timer_surf.get_rect(center=(WIDTH // 2, 30 if is_top else HEIGHT - 30))
+    surface.blit(timer_surf, timer_rect)
+
+# --- Cập nhật đồng hồ ---
+def update_timers():
+    """Cập nhật thời gian còn lại cho mỗi bên."""
+    global white_timer, black_timer, last_timer_update, game_state
+
+    current_time = pygame.time.get_ticks()
+    elapsed_time = current_time - last_timer_update
+    last_timer_update = current_time
+
+    if game_state == "PLAYING":
+        if board.turn == chess.WHITE:
+            white_timer -= elapsed_time
+            if white_timer <= 0:
+                white_timer = 0
+                game_state = "GAME_OVER"
+                print("Black wins! White ran out of time.")
+        else:
+            black_timer -= elapsed_time
+            if black_timer <= 0:
+                black_timer = 0
+                game_state = "GAME_OVER"
+                print("White wins! Black ran out of time.")
+
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
 while running:
-    current_time = pygame.time.get_ticks() # Lấy thời gian hiện tại (ms)
-    mouse_pos = pygame.mouse.get_pos() # Lấy vị trí chuột cho hover effect
+    current_time = pygame.time.get_ticks()
+    mouse_pos = pygame.mouse.get_pos()
 
     # --- Xử lý sự kiện ---
     for event in pygame.event.get():
@@ -288,7 +328,7 @@ while running:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1: # Click chuột trái
+            if event.button == 1:  # Click chuột trái
                 click_pos = pygame.mouse.get_pos()
 
                 if game_state == "MENU":
@@ -301,16 +341,16 @@ while running:
                             computer_move_pending = False
                             game_over_message = ""
                             game_state = "PLAYING"
-                            computer_color = None # Reset computer color
+                            computer_color = None  # Reset computer color
+                            white_timer = WHITE_TIME
+                            black_timer = BLACK_TIME
+                            last_timer_update = pygame.time.get_ticks()
 
-                            if i == 0: game_mode = "PVP"
+                            if i == 0:
+                                game_mode = "PVP"
                             elif i == 1:
                                 game_mode = "PVC"
-                                computer_color = chess.BLACK # Máy mặc định là Đen
-                            elif i == 2:
-                                game_mode = "CVC"
-                                computer_move_pending = True # Máy trắng đi trước
-                                last_computer_move_time = current_time
+                                computer_color = chess.BLACK  # Máy mặc định là Đen
 
                             print(f"Chế độ đã chọn: {game_mode}")
                             break
@@ -320,12 +360,11 @@ while running:
                     if back_button_game_rect and back_button_game_rect.collidepoint(click_pos):
                         game_state = "MENU"
                         game_mode = None
-                        # Reset các biến liên quan đến game nếu cần
                         board = chess.Board()
                         selected_square = source_square = None
                         valid_moves_for_selected_piece = []
                         computer_move_pending = False
-                        continue # Bỏ qua xử lý click bàn cờ
+                        continue
 
                     # Xác định xem người chơi có được tương tác không
                     is_player_interaction_allowed = (game_mode == "PVP") or \
@@ -333,24 +372,22 @@ while running:
 
                     if is_player_interaction_allowed:
                         clicked_square = get_square_from_mouse(click_pos)
-                        if clicked_square is not None: # Click trong bàn cờ
+                        if clicked_square is not None:
                             piece_at_click = board.piece_at(clicked_square)
 
-                            if selected_square is None: # Click lần 1: Chọn quân
+                            if selected_square is None:
                                 if piece_at_click and piece_at_click.color == board.turn:
                                     selected_square = clicked_square
                                     source_square = clicked_square
                                     valid_moves_for_selected_piece = [
                                         m for m in board.legal_moves if m.from_square == source_square
                                     ]
-                                    if not valid_moves_for_selected_piece: # Quân chọn ko có nước đi
+                                    if not valid_moves_for_selected_piece:
                                         selected_square = source_square = None
-                            else: # Click lần 2: Di chuyển hoặc đổi quân
+                            else:
                                 target_square = clicked_square
                                 move_to_try = chess.Move(source_square, target_square)
 
-                                # Xử lý phong cấp đơn giản (luôn thành Hậu)
-                                #Sửa sau này nếu cần phong cấp khác
                                 piece_type = board.piece_type_at(source_square)
                                 if piece_type == chess.PAWN:
                                     target_rank = chess.square_rank(target_square)
@@ -358,92 +395,76 @@ while running:
                                        (board.turn == chess.BLACK and target_rank == 0):
                                         move_to_try = chess.Move(source_square, target_square, promotion=chess.QUEEN)
 
-                                if move_to_try in valid_moves_for_selected_piece: # Đi hợp lệ
+                                if move_to_try in valid_moves_for_selected_piece:
                                     board.push(move_to_try)
                                     print(f"Player ({'White' if board.turn != chess.WHITE else 'Black'}) moves: {move_to_try.uci()}")
-                                    # Bỏ chọn và chuẩn bị cho lượt tiếp theo
                                     selected_square = source_square = None
                                     valid_moves_for_selected_piece = []
-                                    # Kiểm tra game over ngay sau nước đi của người chơi
                                     if board.is_game_over():
                                         game_state = "GAME_OVER"
                                         game_over_message = get_game_over_message(board)
                                         print(f"Game Over: {game_over_message}")
-                                    # Nếu chưa hết game và là chế độ có máy, đánh dấu chờ máy đi
-                                    elif game_mode == "PVC" or game_mode == "CVC":
+                                    elif game_mode == "PVC":
                                         computer_move_pending = True
                                         last_computer_move_time = current_time
 
-                                elif piece_at_click and piece_at_click.color == board.turn: # Chọn quân khác cùng màu
+                                elif piece_at_click and piece_at_click.color == board.turn:
                                     selected_square = clicked_square
                                     source_square = clicked_square
                                     valid_moves_for_selected_piece = [
                                         m for m in board.legal_moves if m.from_square == source_square
                                     ]
                                     if not valid_moves_for_selected_piece:
-                                         selected_square = source_square = None
-                                else: # Click vào ô không hợp lệ -> hủy chọn
+                                        selected_square = source_square = None
+                                else:
                                     selected_square = source_square = None
                                     valid_moves_for_selected_piece = []
-                        else: # Click ngoài bàn cờ -> hủy chọn
+                        else:
                             selected_square = source_square = None
                             valid_moves_for_selected_piece = []
 
                 elif game_state == "GAME_OVER":
-                    # Kiểm tra click nút Back trên màn hình Game Over
                     if back_button_over_rect and back_button_over_rect.collidepoint(click_pos):
                         game_state = "MENU"
                         game_mode = None
-                        # Reset game state nếu cần
                         board = chess.Board()
                         selected_square = source_square = None
                         valid_moves_for_selected_piece = []
                         computer_move_pending = False
 
-    # --- Cập nhật trạng thái (Máy tính đi) ---
-    # Chỉ thực hiện nếu đang chơi và chưa hết game
-    
+    # --- Cập nhật trạng thái ---
+    update_timers()
 
     # --- Vẽ màn hình ---
-    screen.fill(MENU_BG_COLOR) # Tô nền chung
+    screen.fill(MENU_BG_COLOR)
 
     if game_state == "MENU":
-        menu_buttons = draw_menu(screen) # Vẽ menu và cập nhật Rect nút
-        # Đảm bảo các nút back không tồn tại khi ở menu
+        menu_buttons = draw_menu(screen)
         back_button_game_rect = None
         back_button_over_rect = None
     elif game_state == "PLAYING":
-        # Vẽ bàn cờ và quân cờ
         board_surface = screen.subsurface(pygame.Rect(0, 0, BOARD_SIZE, BOARD_SIZE))
         draw_board(board_surface)
-        if selected_square is not None: # Highlight nếu có quân đang được chọn
+        if selected_square is not None:
             highlight_square(board_surface, selected_square)
             highlight_valid_moves(board_surface, valid_moves_for_selected_piece)
         draw_pieces(board_surface, board)
-        # Vẽ thông tin game và lấy Rect nút Back
         back_button_game_rect = draw_game_info(screen, board, game_mode)
-        back_button_over_rect = None # Không có nút back của game over ở đây
+        back_button_over_rect = None
 
-        # (Việc kiểm tra game over ở đây là không cần thiết nếu đã kiểm tra kỹ sau mỗi move)
-        # if board.is_game_over() and game_state != "GAME_OVER":
-        #     game_state = "GAME_OVER"; game_over_message = get_game_over_message(board)
+        # Vẽ đồng hồ
+        draw_timer(screen, black_timer, is_top=True)
+        draw_timer(screen, white_timer, is_top=False)
 
     elif game_state == "GAME_OVER":
-        # Vẫn vẽ bàn cờ ở trạng thái cuối cùng
         board_surface = screen.subsurface(pygame.Rect(0, 0, BOARD_SIZE, BOARD_SIZE))
         draw_board(board_surface)
         draw_pieces(board_surface, board)
-        # Vẫn vẽ info cuối cùng và nút Back của game (nhưng nút này sẽ bị che)
         back_button_game_rect = draw_game_info(screen, board, game_mode)
-        # Vẽ màn hình game over đè lên và lấy Rect nút Back của nó
         back_button_over_rect = draw_game_over(screen, game_over_message)
 
-    # Cập nhật toàn bộ màn hình
     pygame.display.flip()
-
-    # Giới hạn FPS
     clock.tick(FPS)
 
-# Kết thúc Pygame
 pygame.quit()
 sys.exit()
