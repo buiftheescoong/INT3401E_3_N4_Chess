@@ -2,6 +2,7 @@
 import pygame
 import chess
 import sys
+from Elo_Calculation import Elo_Calculation
 import random
 import time
 
@@ -28,6 +29,7 @@ BUTTON_HOVER_COLOR = (100, 100, 100)
 TEXT_COLOR = (220, 220, 220)
 
 # Font chữ (Thử dùng font hệ thống, nếu lỗi sẽ dùng font mặc định)
+botRating = 1200
 try:
     MENU_FONT = pygame.font.SysFont("consolas", 30)
     MSG_FONT = pygame.font.SysFont("consolas", 20)
