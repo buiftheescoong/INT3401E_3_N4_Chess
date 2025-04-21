@@ -4,6 +4,7 @@ import chess
 import sys
 import random
 import time
+from Elo_Calculation import Elo_Cal
 
 # --- Cài đặt cơ bản ---
 pygame.init()
@@ -60,6 +61,23 @@ menu_buttons = []   # Lưu trữ Rect của các nút menu
 back_button_game_rect = None # Rect của nút Back khi đang chơi
 back_button_over_rect = None # Rect của nút Back khi game over
 game_over_message = "" # Thông báo khi kết thúc game
+
+import os
+
+# Đọc ELO của máy từ file (nếu có), mặc định 1600
+def load_bot_elo():
+    if os.path.exists("bot_elo.txt"):
+        with open("bot_elo.txt", "r") as f:
+            return int(f.read())
+    return 1600
+
+# Ghi ELO mới vào file
+def save_bot_elo(new_elo):
+    with open("bot_elo.txt", "w") as f:
+        f.write(str(new_elo))
+
+# Gọi khi bắt đầu game
+botRating = load_bot_elo()
 
 # --- Tải tài nguyên ---
 def load_piece_images():
@@ -328,7 +346,7 @@ def update_timers():
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
-elo_input = 0  # Lưu trữ giá trị ELO người chơi nhập
+elo_input = ""  # Lưu trữ giá trị ELO người chơi nhập
 is_typing_elo = False  # Trạng thái nhập ELO
 computer_move_pending = False
 last_computer_move_time = 0
@@ -480,6 +498,17 @@ while running:
                 game_state = "GAME_OVER"
                 game_over_message = get_game_over_message(board)
                 print(f"Game Over: {game_over_message}")
+                if game_mode == "PVC":
+                    player_elo = elo_input  # giá trị giả định cho người chơi
+                    if "wins" in game_over_message:
+                        winner = "Black" if board.turn == chess.WHITE else "White"
+                        result = 1.0 if winner == "Black" else 0.0
+
+                    new_bot_elo = Elo_Cal(botRating, elo_input, result)
+                    print(
+                        f"[ELO] Máy {'thắng' if result == 1 else 'hòa' if result == 0.5 else 'thua'} → ELO mới: {new_bot_elo}")
+                    bot_elo = new_bot_elo  # cập nhật biến trong game
+                    save_bot_elo(bot_elo)
         computer_move_pending = False
 
     # --- Vẽ màn hình ---
