@@ -322,6 +322,9 @@ def update_timers():
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
+elo_input = ""  # Lưu trữ giá trị ELO người chơi nhập
+is_typing_elo = False  # Trạng thái nhập ELO
+
 while running:
     current_time = pygame.time.get_ticks()
     mouse_pos = pygame.mouse.get_pos()
@@ -331,110 +334,129 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # Click chuột trái
+        if game_state == "MENU":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Click chuột trái
+                click_pos = pygame.mouse.get_pos()
+                for i, button_rect in enumerate(menu_buttons):
+                    if button_rect.collidepoint(click_pos):
+                        # Reset game state for new game
+                        board = chess.Board()
+                        selected_square = source_square = None
+                        valid_moves_for_selected_piece = []
+                        computer_move_pending = False
+                        game_over_message = ""
+                        white_timer = WHITE_TIME
+                        black_timer = BLACK_TIME
+                        last_timer_update = pygame.time.get_ticks()
+
+                        if i == 0:  # Chế độ PVP
+                            game_mode = "PVP"
+                            game_state = "PLAYING"
+                        elif i == 1:  # Chế độ PVC
+                            game_mode = "PVC"
+                            game_state = "ENTER_ELO"
+                            elo_input = ""  # Reset ELO input
+                            is_typing_elo = True
+
+                        print(f"Chế độ đã chọn: {game_mode}")
+                        break
+
+        elif game_state == "ENTER_ELO":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:  # Nhấn Enter để xác nhận
+                    if elo_input.isdigit():  # Kiểm tra ELO hợp lệ
+                        print(f"Player ELO: {elo_input}")
+                        game_state = "PLAYING"
+                        computer_color = chess.BLACK  # Máy mặc định là Đen
+                        last_timer_update = pygame.time.get_ticks()
+                    else:
+                        print("Invalid ELO. Please enter a number.")
+                elif event.key == pygame.K_BACKSPACE:  # Xóa ký tự
+                    elo_input = elo_input[:-1]
+                else:
+                    elo_input += event.unicode  # Thêm ký tự vào ELO
+
+        elif game_state == "PLAYING":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Click chuột trái
                 click_pos = pygame.mouse.get_pos()
 
-                if game_state == "MENU":
-                    for i, button_rect in enumerate(menu_buttons):
-                        if button_rect.collidepoint(click_pos):
-                            # Reset game state for new game
-                            board = chess.Board()
-                            selected_square = source_square = None
-                            valid_moves_for_selected_piece = []
-                            computer_move_pending = False
-                            game_over_message = ""
-                            game_state = "PLAYING"
-                            computer_color = None  # Reset computer color
-                            white_timer = WHITE_TIME
-                            black_timer = BLACK_TIME
-                            last_timer_update = pygame.time.get_ticks()
+                # Kiểm tra click nút Back to Menu
+                if back_button_game_rect and back_button_game_rect.collidepoint(click_pos):
+                    game_state = "MENU"
+                    game_mode = None
+                    board = chess.Board()
+                    selected_square = source_square = None
+                    valid_moves_for_selected_piece = []
+                    computer_move_pending = False
+                    continue
 
-                            if i == 0:
-                                game_mode = "PVP"
-                            elif i == 1:
-                                game_mode = "PVC"
-                                computer_color = chess.BLACK  # Máy mặc định là Đen
+                # Xác định xem người chơi có được tương tác không
+                is_player_interaction_allowed = (game_mode == "PVP") or \
+                                                (game_mode == "PVC" and board.turn != computer_color)
 
-                            print(f"Chế độ đã chọn: {game_mode}")
-                            break
+                if is_player_interaction_allowed:
+                    clicked_square = get_square_from_mouse(click_pos)
+                    if clicked_square is not None:
+                        piece_at_click = board.piece_at(clicked_square)
 
-                elif game_state == "PLAYING":
-                    # Kiểm tra click nút Back to Menu trước
-                    if back_button_game_rect and back_button_game_rect.collidepoint(click_pos):
-                        game_state = "MENU"
-                        game_mode = None
-                        board = chess.Board()
-                        selected_square = source_square = None
-                        valid_moves_for_selected_piece = []
-                        computer_move_pending = False
-                        continue
-
-                    # Xác định xem người chơi có được tương tác không
-                    is_player_interaction_allowed = (game_mode == "PVP") or \
-                                                    (game_mode == "PVC" and board.turn != computer_color)
-
-                    if is_player_interaction_allowed:
-                        clicked_square = get_square_from_mouse(click_pos)
-                        if clicked_square is not None:
-                            piece_at_click = board.piece_at(clicked_square)
-
-                            if selected_square is None:
-                                if piece_at_click and piece_at_click.color == board.turn:
-                                    selected_square = clicked_square
-                                    source_square = clicked_square
-                                    valid_moves_for_selected_piece = [
-                                        m for m in board.legal_moves if m.from_square == source_square
-                                    ]
-                                    if not valid_moves_for_selected_piece:
-                                        selected_square = source_square = None
-                            else:
-                                target_square = clicked_square
-                                move_to_try = chess.Move(source_square, target_square)
-
-                                piece_type = board.piece_type_at(source_square)
-                                if piece_type == chess.PAWN:
-                                    target_rank = chess.square_rank(target_square)
-                                    if (board.turn == chess.WHITE and target_rank == 7) or \
-                                       (board.turn == chess.BLACK and target_rank == 0):
-                                        move_to_try = chess.Move(source_square, target_square, promotion=chess.QUEEN)
-
-                                if move_to_try in valid_moves_for_selected_piece:
-                                    board.push(move_to_try)
-                                    print(f"Player ({'White' if board.turn != chess.WHITE else 'Black'}) moves: {move_to_try.uci()}")
+                        if selected_square is None:
+                            if piece_at_click and piece_at_click.color == board.turn:
+                                selected_square = clicked_square
+                                source_square = clicked_square
+                                valid_moves_for_selected_piece = [
+                                    m for m in board.legal_moves if m.from_square == source_square
+                                ]
+                                if not valid_moves_for_selected_piece:
                                     selected_square = source_square = None
-                                    valid_moves_for_selected_piece = []
-                                    if board.is_game_over():
-                                        game_state = "GAME_OVER"
-                                        game_over_message = get_game_over_message(board)
-                                        print(f"Game Over: {game_over_message}")
-                                    elif game_mode == "PVC":
-                                        computer_move_pending = True
-                                        last_computer_move_time = current_time
-
-                                elif piece_at_click and piece_at_click.color == board.turn:
-                                    selected_square = clicked_square
-                                    source_square = clicked_square
-                                    valid_moves_for_selected_piece = [
-                                        m for m in board.legal_moves if m.from_square == source_square
-                                    ]
-                                    if not valid_moves_for_selected_piece:
-                                        selected_square = source_square = None
-                                else:
-                                    selected_square = source_square = None
-                                    valid_moves_for_selected_piece = []
                         else:
-                            selected_square = source_square = None
-                            valid_moves_for_selected_piece = []
+                            target_square = clicked_square
+                            move_to_try = chess.Move(source_square, target_square)
 
-                elif game_state == "GAME_OVER":
-                    if back_button_over_rect and back_button_over_rect.collidepoint(click_pos):
-                        game_state = "MENU"
-                        game_mode = None
-                        board = chess.Board()
+                            piece_type = board.piece_type_at(source_square)
+                            if piece_type == chess.PAWN:
+                                target_rank = chess.square_rank(target_square)
+                                if (board.turn == chess.WHITE and target_rank == 7) or \
+                                   (board.turn == chess.BLACK and target_rank == 0):
+                                    move_to_try = chess.Move(source_square, target_square, promotion=chess.QUEEN)
+
+                            if move_to_try in valid_moves_for_selected_piece:
+                                board.push(move_to_try)
+                                print(f"Player ({'White' if board.turn != chess.WHITE else 'Black'}) moves: {move_to_try.uci()}")
+                                selected_square = source_square = None
+                                valid_moves_for_selected_piece = []
+                                if board.is_game_over():
+                                    game_state = "GAME_OVER"
+                                    game_over_message = get_game_over_message(board)
+                                    print(f"Game Over: {game_over_message}")
+                                elif game_mode == "PVC":
+                                    computer_move_pending = True
+                                    last_computer_move_time = current_time
+
+                            elif piece_at_click and piece_at_click.color == board.turn:
+                                selected_square = clicked_square
+                                source_square = clicked_square
+                                valid_moves_for_selected_piece = [
+                                    m for m in board.legal_moves if m.from_square == source_square
+                                ]
+                                if not valid_moves_for_selected_piece:
+                                    selected_square = source_square = None
+                            else:
+                                selected_square = source_square = None
+                                valid_moves_for_selected_piece = []
+                    else:
                         selected_square = source_square = None
                         valid_moves_for_selected_piece = []
-                        computer_move_pending = False
+
+        elif game_state == "GAME_OVER":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                click_pos = pygame.mouse.get_pos()
+                if back_button_over_rect and back_button_over_rect.collidepoint(click_pos):
+                    game_state = "MENU"
+                    game_mode = None
+                    board = chess.Board()
+                    selected_square = source_square = None
+                    valid_moves_for_selected_piece = []
+                    computer_move_pending = False
 
     # --- Cập nhật trạng thái ---
     update_timers()
@@ -446,6 +468,14 @@ while running:
         menu_buttons = draw_menu(screen)
         back_button_game_rect = None
         back_button_over_rect = None
+    elif game_state == "ENTER_ELO":
+        # Vẽ textfield để nhập ELO
+        pygame.draw.rect(screen, WHITE, pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 - 20, 200, 40), border_radius=5)
+        pygame.draw.rect(screen, BLACK, pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 - 20, 200, 40), 2, border_radius=5)
+        elo_surface = MSG_FONT.render(elo_input, True, BLACK)
+        screen.blit(elo_surface, (WIDTH // 2 - 90, HEIGHT // 2 - 10))
+        instruction_surface = MSG_FONT.render("Enter your ELO and press Enter", True, TEXT_COLOR)
+        screen.blit(instruction_surface, (WIDTH // 2 - 150, HEIGHT // 2 - 60))
     elif game_state == "PLAYING":
         board_surface = screen.subsurface(pygame.Rect(0, 0, BOARD_SIZE, BOARD_SIZE))
         draw_board(board_surface)
