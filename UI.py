@@ -12,7 +12,7 @@ pygame.init()
 TOP_MARGIN = 80
 WIDTH, HEIGHT = 800, 800 # Chiều cao lớn hơn để chứa menu/thông báo
 BOARD_SIZE = 640 # Kích thước bàn cờ (nên chia hết cho 8)
-SQUARE_SIZE = BOARD_SIZE // 9.5
+SQUARE_SIZE = BOARD_SIZE // 9
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
 
 # Màu sắc
