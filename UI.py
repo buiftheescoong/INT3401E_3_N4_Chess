@@ -9,9 +9,10 @@ import time
 pygame.init()
 
 # Kích thước màn hình và bàn cờ
-WIDTH, HEIGHT = 900, 750 # Chiều cao lớn hơn để chứa menu/thông báo
+TOP_MARGIN = 80
+WIDTH, HEIGHT = 800, 800 # Chiều cao lớn hơn để chứa menu/thông báo
 BOARD_SIZE = 640 # Kích thước bàn cờ (nên chia hết cho 8)
-SQUARE_SIZE = BOARD_SIZE // 8
+SQUARE_SIZE = BOARD_SIZE // 9.5
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
 
 # Màu sắc
@@ -88,7 +89,7 @@ def draw_board(surface):
         for file in range(8):
             is_light_square = (rank + file) % 2 == 0
             color = LIGHT_SQUARE if is_light_square else DARK_SQUARE
-            rect = pygame.Rect(file * SQUARE_SIZE, rank * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+            rect = pygame.Rect(file * SQUARE_SIZE, rank * SQUARE_SIZE + TOP_MARGIN, SQUARE_SIZE, SQUARE_SIZE)
             pygame.draw.rect(surface, color, rect)
 
 def get_piece_symbol(piece):
@@ -108,31 +109,33 @@ def draw_pieces(surface, current_board):
                 piece_symbol = get_piece_symbol(piece)
                 if piece_symbol in piece_images:
                     screen_x = file * SQUARE_SIZE
-                    screen_y = rank * SQUARE_SIZE
+                    screen_y = rank * SQUARE_SIZE + TOP_MARGIN
                     surface.blit(piece_images[piece_symbol], (screen_x, screen_y))
 
+# --- Hàm highlight ô cờ ---
 def highlight_square(surface, square_index):
     """Highlight ô cờ được chọn."""
     if square_index is not None:
         file = chess.square_file(square_index)
         rank = chess.square_rank(square_index)
-        screen_y = (7 - rank) * SQUARE_SIZE
+        screen_y = (7 - rank) * SQUARE_SIZE + TOP_MARGIN
         screen_x = file * SQUARE_SIZE
         highlight_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
         highlight_surface.fill(HIGHLIGHT_COLOR)
-        surface.blit(highlight_surface, (screen_x, screen_y))
-
+       
+# --- Hàm highlight nước đi hợp lệ ---
 def highlight_valid_moves(surface, moves):
     """Vẽ các chấm tròn nhỏ để chỉ các nước đi hợp lệ."""
     for move in moves:
         target_square = move.to_square
         file = chess.square_file(target_square)
         rank = chess.square_rank(target_square)
-        screen_y = (7 - rank) * SQUARE_SIZE
+        screen_y = (7 - rank) * SQUARE_SIZE + TOP_MARGIN
         screen_x = file * SQUARE_SIZE
         center_x = screen_x + SQUARE_SIZE // 2
         center_y = screen_y + SQUARE_SIZE // 2
         pygame.draw.circle(surface, GRAY, (center_x, center_y), SQUARE_SIZE // 6)
+
 
 def draw_menu(surface):
     """Vẽ menu chính và trả về Rect của các nút."""
@@ -171,7 +174,7 @@ def draw_game_info(surface, current_board, current_game_mode):
     # Lượt đi
     turn_text = "White's Turn" if current_board.turn == chess.WHITE else "Black's Turn"
     turn_surf = MSG_FONT.render(turn_text, True, TEXT_COLOR)
-    turn_rect = turn_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.25))
+    turn_rect = turn_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.25 + 60))
     surface.blit(turn_surf, turn_rect)
 
     # Chế độ chơi
@@ -261,13 +264,14 @@ def draw_game_over(surface, message):
      surface.blit(back_text_surf, back_text_rect)
      return back_rect # Trả về Rect của nút
 
-# --- Hàm trợ giúp ---
+# --- Hàm trợ giúp: Lấy ô cờ từ tọa độ chuột ---
 def get_square_from_mouse(pos):
     """Chuyển đổi tọa độ chuột (x, y) thành chess.Square index (0-63)."""
     x, y = pos
-    if x < 0 or x >= BOARD_SIZE or y < 0 or y >= BOARD_SIZE: return None
+    if x < 0 or x >= BOARD_SIZE or y < TOP_MARGIN or y >= BOARD_SIZE + TOP_MARGIN:
+        return None
     file = x // SQUARE_SIZE
-    rank = 7 - (y // SQUARE_SIZE)
+    rank = 7 - ((y - TOP_MARGIN) // SQUARE_SIZE)
     return chess.square(file, rank)
 
 # --- Logic Máy Chơi ---
