@@ -276,14 +276,14 @@ def get_square_from_mouse(pos):
     return chess.square(file, rank)
 
 # --- Logic Máy Chơi ---
-#Thêm code ở đây
-
-
-
-
-
-
-
+def make_random_computer_move(current_board):
+    """Thêm code"""
+    time.sleep(1) # Để máy đi không quá nhanh
+    legal_moves = list(current_board.legal_moves)
+    if legal_moves:
+        move = random.choice(legal_moves)
+        return move
+    return False # Trả về False nếu không có nước đi hợp lệ
 
 # --- Biến toàn cục cho đồng hồ ---
 WHITE_TIME = 15 * 60 * 1000  # 15 phút (ms)
@@ -470,17 +470,16 @@ while running:
     if game_mode == "PVC" and board.turn == computer_color and not computer_move_pending and game_state == "PLAYING":
         computer_move_pending = True
         last_computer_move_time = current_time
-    
-    #
+
     if computer_move_pending and (current_time - last_computer_move_time > 500): # Delay 0.5s
-        #computer_move = make_random_computer_move(board)
-        #if computer_move:
-        #    board.push(computer_move)
-        #    print(f"Computer moves: {computer_move.uci()}")
-        #    if board.is_game_over():
-        #        game_state = "GAME_OVER"
-        #        game_over_message = get_game_over_message(board)
-        #        print(f"Game Over: {game_over_message}")
+        computer_move = make_random_computer_move(board)
+        if computer_move:
+            board.push(computer_move)
+            print(f"Computer moves: {computer_move.uci()}")
+            if board.is_game_over():
+                game_state = "GAME_OVER"
+                game_over_message = get_game_over_message(board)
+                print(f"Game Over: {game_over_message}")
         computer_move_pending = False
 
     # --- Vẽ màn hình ---
