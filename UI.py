@@ -2,7 +2,7 @@
 import pygame
 import chess
 import sys
-from Elo_Calculation import Elo_Calculation
+from Elo_Calculation import Elo_Cal
 import random
 import time
 
@@ -29,7 +29,7 @@ BUTTON_HOVER_COLOR = (100, 100, 100)
 TEXT_COLOR = (220, 220, 220)
 
 # Font chữ (Thử dùng font hệ thống, nếu lỗi sẽ dùng font mặc định)
-botRating = 1200
+botRating = 1200#tên biến lưu elo của bot
 try:
     MENU_FONT = pygame.font.SysFont("consolas", 30)
     MSG_FONT = pygame.font.SysFont("consolas", 20)
@@ -71,7 +71,7 @@ back_button_over_rect = None  # Rect của nút Back khi game over
 game_over_message = ""  # Thông báo khi kết thúc game
 
 # --- ELO input ---
-elo_input = ""  # Lưu trữ giá trị ELO người chơi nhập
+elo_input = 0  # Lưu trữ giá trị ELO người chơi nhập
 is_typing_elo = False  # Trạng thái nhập ELO
 
 # --- Computer move ---
