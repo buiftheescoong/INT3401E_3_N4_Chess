@@ -44,6 +44,13 @@ pygame.display.set_caption("Simple Pygame Chess")
 
 # Clock để kiểm soát FPS
 clock = pygame.time.Clock()
+
+# Tải background image
+try:
+    MENU_BACKGROUND = pygame.image.load("img/menu_background.png").convert()
+except pygame.error as e:
+    print(f"Không thể tải background image: {e}")
+    MENU_BACKGROUND = None  # Xử lý nếu không tải được ảnh
 FPS = 30
 
 # --- Trạng thái trò chơi ---
@@ -167,22 +174,24 @@ def highlight_valid_moves(surface, moves):
 
 def draw_menu(surface):
     """Vẽ menu chính và trả về Rect của các nút."""
-    surface.fill(MENU_BG_COLOR)
-    title_text = MENU_FONT.render("Simple Pygame Chess", True, TEXT_COLOR)
-    title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 4))
-    surface.blit(title_text, title_rect)
+    # Vẽ background image
+    if MENU_BACKGROUND:
+        surface.blit(MENU_BACKGROUND, (0, 0))
+    else:
+        surface.fill(MENU_BG_COLOR)  # Fallback nếu không có ảnh
 
-    button_texts = ["Player vs Player", "Player vs Computer"]
+    # Cấu hình nút
+    button_texts = ["PVP", "PVC"]
     button_rects = []
-    button_height = 60
-    button_width = 350
-    total_button_height = len(button_texts) * button_height + (len(button_texts) - 1) * 20
-    start_y = (HEIGHT - total_button_height) // 2 + 50
-    mouse_pos = pygame.mouse.get_pos()
+    button_width = 200  # Kích thước nút
+    button_height = 50
+    button_y_start = HEIGHT // 2 - 60  # Vị trí y ban đầu của nút
 
+    # Tạo nút
     for i, text in enumerate(button_texts):
-        rect = pygame.Rect((WIDTH - button_width) // 2, start_y + i * (button_height + 20), button_width, button_height)
+        rect = pygame.Rect(WIDTH // 2 - button_width // 2, button_y_start + i * (button_height + 20), button_width, button_height)
         button_rects.append(rect)
+        mouse_pos = pygame.mouse.get_pos()
         is_hovering = rect.collidepoint(mouse_pos)
         button_color = BUTTON_HOVER_COLOR if is_hovering else BUTTON_COLOR
         pygame.draw.rect(surface, button_color, rect, border_radius=10)
