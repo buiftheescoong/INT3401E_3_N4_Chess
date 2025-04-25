@@ -44,20 +44,21 @@ def build_opening(self):
 """
 
 #Opening nếu không muốn nhập thành
-
 def Elo_Cal(rating1, rating2, result):
-    if (rating1 > 2400):
+    rate1 = int(rating1)
+    if (rate1 > 2400):
         k = 10
-    elif rating1 <= 2400 and rating1 > 2000:
+    elif rate1 <= 2400 and rate1 > 2000:
         k = 15
-    elif rating1 <= 2000 and rating1 > 1600:
+    elif rate1 <= 2000 and rate1 > 1600:
         k = 20
     else:
         k = 25
-    Qa, Qb = 10 ** (rating1 / 400), 10 ** (rating2 / 400)
+    rate2 = int(rating2)
+    Qa, Qb = 10 ** (rate1 / 400), 10 ** (rate2 / 400)
     Ea = Qa / (Qa + Qb)
     Eb = Qb / (Qa + Qb)
-    if result is True:
-        return rating1 + k * (1 - Ea)
+    if result == 0:
+        return str(rate1 + k * (1 - Ea))
     else:
-        return rating1 + k * (0 - Eb)
+        return str(rate1 + k * (0 - Eb))
