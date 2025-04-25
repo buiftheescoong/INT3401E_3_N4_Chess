@@ -1,9 +1,13 @@
 import random
-
+from typing import List
 import chess
 import timeit
 import time
 import numpy as np
+from .heuristic import evaluate
+
+MATE_SCORE     = 1000000000
+MATE_THRESHOLD =  999000000
 
 # KILLER MOVE & HISTORY HEURISTIC
 killer_move = np.zeros((20, 2), dtype=chess.Move)  # killer_move[0/1][ply]
@@ -22,7 +26,7 @@ MVV_LVA = np.array([
 MVV_LVA_OFFSET = 1000000
 
 
-def move_ordering(board: chess.Board, move: chess.Move, depth):
+def move_ordering(board: chess.Board, move: chess.Move):
     move_score = 0
     to_square = move.to_square
     from_square = move.from_square
@@ -45,9 +49,9 @@ def move_ordering(board: chess.Board, move: chess.Move, depth):
     return move_score
 
 # GET BEST MOVE
-def get_best_move(board: chess.Board):
+def get_best_move(board: chess.Board, time_limit = 10):
     print("\n\nThinking...")
-    start = timeit.default_timer()
+    start = time.time()
 
     best_move = None
     try:
@@ -57,16 +61,119 @@ def get_best_move(board: chess.Board):
             if len(root) != 0:
                 op_move = root[0]
                 best_move = op_move.move
-                time.sleep(1)
                 return best_move, "opening"
     except:
         pass
 
-    # If no opening move, choose random legal move
-    legal_moves = list(board.legal_moves)
-    if legal_moves:
-        best_move = random.choice(legal_moves)
+    max_depth = 4
+    depth = 1
+    while time.time() - start < time_limit and depth < max_depth:
+        best_move = next_move(depth, board)
+        print(f'Using heuristic for depth {depth}')
+        end = time.time()
+        if end - start >= time_limit:
+            break
+        depth += 1
 
-    end = timeit.default_timer()
-    print("\nruntime: ", round(end - start, 2), "s")
-    return best_move, "random"
+    end = time.time()
+    print("\nRuntime:", round(end - start, 2), "s")
+    return best_move, "heuristic"
+
+
+def next_move(depth: int, board: chess.Board) -> chess.Move:
+    return minimax_root(depth, board)
+
+def get_ordered_moves(board: chess.Board) -> List[chess.Move]:
+
+    def orderer(move):
+        return move_ordering(board, move)
+
+    in_order = sorted(
+        board.legal_moves, key=orderer, reverse=(board.turn == chess.WHITE)
+    )
+    return list(in_order)
+
+
+def minimax_root(depth: int, board: chess.Board) -> chess.Move:
+
+    maximize = board.turn == chess.WHITE
+    best_move = -float("inf")
+    if not maximize:
+        best_move = float("inf")
+
+    moves = get_ordered_moves(board)
+    best_move_found = moves[0]
+
+    for move in moves:
+        board.push(move)
+        if board.can_claim_draw():
+            value = 0.0
+        else:
+            value = minimax(depth - 1, board, -float("inf"), float("inf"), not maximize)
+        board.pop()
+        if maximize and value >= best_move:
+            best_move = value
+            best_move_found = move
+        elif not maximize and value <= best_move:
+            best_move = value
+            best_move_found = move
+
+    return best_move_found
+
+def minimax(
+    depth: int,
+    board: chess.Board,
+    alpha: float,
+    beta: float,
+    is_maximising_player: bool,
+) -> float:
+
+    if board.is_checkmate():
+        return -MATE_SCORE if is_maximising_player else MATE_SCORE
+
+    elif board.is_game_over():
+        return 0
+
+    if depth == 0:
+        return evaluate(board)
+
+    if is_maximising_player:
+        best_move = -float("inf")
+        moves = get_ordered_moves(board)
+        for move in moves:
+            board.push(move)
+            curr_move = minimax(depth - 1, board, alpha, beta, not is_maximising_player)
+
+            if curr_move > MATE_THRESHOLD:
+                curr_move -= 1
+            elif curr_move < -MATE_THRESHOLD:
+                curr_move += 1
+            best_move = max(
+                best_move,
+                curr_move,
+            )
+            board.pop()
+            alpha = max(alpha, best_move)
+            if beta <= alpha:
+                return best_move
+        return best_move
+    else:
+        best_move = float("inf")
+        moves = get_ordered_moves(board)
+        for move in moves:
+            board.push(move)
+            curr_move = minimax(depth - 1, board, alpha, beta, not is_maximising_player)
+            if curr_move > MATE_THRESHOLD:
+                curr_move -= 1
+            elif curr_move < -MATE_THRESHOLD:
+                curr_move += 1
+            best_move = min(
+                best_move,
+                curr_move,
+            )
+            board.pop()
+            beta = min(beta, best_move)
+            if beta <= alpha:
+                return best_move
+        return best_move
+
