@@ -1,1 +1,1 @@
-game_over
+elo_input

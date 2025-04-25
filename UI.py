@@ -6,8 +6,6 @@ from Elo_Calculation import Elo_Cal
 import random
 import time
 
-from engine.ComputeMove import get_best_move
-
 # --- Cài đặt cơ bản ---
 pygame.init()
 
@@ -162,16 +160,17 @@ def highlight_square(surface, square_index):
 
 # --- Hàm highlight nước đi hợp lệ ---
 def highlight_valid_moves(surface, moves):
-    """Vẽ các chấm tròn nhỏ để chỉ các nước đi hợp lệ."""
+    """Highlight các ô đích của nước đi hợp lệ."""
     for move in moves:
         target_square = move.to_square
         file = chess.square_file(target_square)
         rank = chess.square_rank(target_square)
         screen_y = (7 - rank) * SQUARE_SIZE + TOP_MARGIN
         screen_x = file * SQUARE_SIZE
-        center_x = screen_x + SQUARE_SIZE // 2
-        center_y = screen_y + SQUARE_SIZE // 2
-        pygame.draw.circle(surface, GRAY, (center_x, center_y), SQUARE_SIZE // 6)
+
+        highlight_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+        highlight_surface.fill(HIGHLIGHT_COLOR)
+        surface.blit(highlight_surface, (screen_x, screen_y))
 
 
 def draw_menu(surface):
@@ -214,7 +213,7 @@ def draw_menu(surface):
                 white_timer = WHITE_TIME
                 black_timer = BLACK_TIME
                 last_timer_update = pygame.time.get_ticks()
-                elo_input = ""
+                elo_input = 0
                 is_typing_elo = False
 
                 if i == 0:  # Chế độ PVP
@@ -278,6 +277,13 @@ def draw_game_info(surface, current_board, current_game_mode):
         status_surf = MSG_FONT.render(status_text, True, status_color)
         status_rect = status_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.75))
         surface.blit(status_surf, status_rect)
+
+    # Elo ratings
+    if current_game_mode == "PVC":
+        elo_text = f"Số elo của người : {elo_input}    Số elo của máy : {botRating}"
+        elo_surf = MSG_FONT.render(elo_text, True, TEXT_COLOR)
+        elo_rect = elo_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.5))
+        surface.blit(elo_surf, elo_rect)
 
     # Nút Back to Menu (khi đang chơi)
     back_rect = pygame.Rect(WIDTH - 160, BOARD_SIZE + MENU_HEIGHT * 0.6, 140, 40)
@@ -348,17 +354,12 @@ def get_square_from_mouse(pos):
 # --- Logic Máy Chơi ---
 def make_random_computer_move(current_board):
     """Thêm code"""
-    move, type = get_best_move(current_board)
-    if move:
-        print(type)
+    time.sleep(1)  # Để máy đi không quá nhanh
+    legal_moves = list(current_board.legal_moves)
+    if legal_moves:
+        move = random.choice(legal_moves)
         return move
-    else:
-        legal_moves = list(board.legal_moves)
-        if not legal_moves:
-            return None
-        random_move =  random.choice(legal_moves)
-        print("random")
-        return random_move
+    return False  # Trả về False nếu không có nước đi hợp lệ
 
 
 # --- Hàm vẽ đồng hồ ---
@@ -462,7 +463,7 @@ while running:
                     selected_square = source_square = None
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
-                    elo_input = ""
+                    elo_input = 0
                     is_typing_elo = False
                     continue
 

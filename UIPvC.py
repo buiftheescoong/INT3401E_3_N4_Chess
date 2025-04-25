@@ -54,6 +54,7 @@ piece_images = {}   # Lưu trữ ảnh quân cờ đã tải và resize
 selected_square = None # Ô đang được chọn (dạng chess.Square index)
 source_square = None   # Ô gốc của quân cờ được chọn
 valid_moves_for_selected_piece = [] # Danh sách các đối tượng chess.Move hợp lệ
+botRating = 1200 # ELO của máy
 
 # Biến cho giao diện
 menu_buttons = []   # Lưu trữ Rect của các nút menu
@@ -212,6 +213,12 @@ def draw_game_info(surface, current_board, current_game_mode):
         status_surf = MSG_FONT.render(status_text, True, status_color)
         status_rect = status_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.75))
         surface.blit(status_surf, status_rect)
+
+    # Elo của người và máy
+    elo_text = f"Số elo của người : {elo_input}\t Số elo của máy : {botRating}"
+    elo_surf = MSG_FONT.render(elo_text, True, TEXT_COLOR)
+    elo_rect = elo_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.5))
+    surface.blit(elo_surf, elo_rect)
 
     # Nút Back to Menu (khi đang chơi)
     back_rect = pygame.Rect(WIDTH - 160, BOARD_SIZE + MENU_HEIGHT * 0.6, 140, 40)
@@ -372,13 +379,19 @@ while running:
                 if event.key == pygame.K_RETURN:  # Nhấn Enter để xác nhận
                     if elo_input.isdigit():  # Kiểm tra ELO hợp lệ
                         print(f"Player ELO: {elo_input}")
+                        try:
+                            elo_input = int(elo_input)
+                        except ValueError:
+                            print("Invalid ELO. Please enter a number.")
+                            elo_input = 0
                         game_state = "PLAYING"
                         computer_color = chess.BLACK  # Máy mặc định là Đen
                         last_timer_update = pygame.time.get_ticks()
                     else:
                         print("Invalid ELO. Please enter a number.")
                 elif event.key == pygame.K_BACKSPACE:  # Xóa ký tự
-                    elo_input = elo_input[:-1]
+                    if elo_input:
+                        elo_input = elo_input[:-1]
                 else:
                     elo_input += event.unicode  # Thêm ký tự vào ELO
 
