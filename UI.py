@@ -57,9 +57,17 @@ except pygame.error as e:
 FPS = 30
 
 # --- Trạng thái trò chơi ---
-game_state = "MENU"  # MENU, ENTER_ELO, PLAYING, GAME_OVER
+game_state = "MENU"  # MENU, ENTER_ELO, PLAYING, GAME_OVER, PROMOTION
 game_mode = None  # PVP, PVC
 board = chess.Board()  # Bàn cờ logic
+
+# --- Biến cho promotion ---
+promotion_move = None  # Lưu nước đi chờ phong cấp
+promotion_source = None  # Ô nguồn của quân cờ phong cấp
+promotion_target = None  # Ô đích của quân cờ phong cấp
+promotion_options = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]  # Các quân có thể phong cấp
+promotion_rects = []  # Rect của các lựa chọn phong cấp
+
 
 # --- Biến toàn cục ---
 piece_images = {}  # Lưu trữ ảnh quân cờ đã tải và resize
@@ -660,6 +668,82 @@ def jump_to_move(move_idx):
     
     return True
 
+def check_promotion(source_square, target_square):
+    """Kiểm tra xem nước đi có phải là phong cấp hay không."""
+    global game_state, promotion_source, promotion_target
+    
+    if source_square is None or target_square is None:
+        return False
+        
+    piece = board.piece_at(source_square)
+    if piece and piece.piece_type == chess.PAWN:
+        target_rank = chess.square_rank(target_square)
+        if (piece.color == chess.WHITE and target_rank == 7) or \
+           (piece.color == chess.BLACK and target_rank == 0):
+            # Lưu thông tin cho màn hình phong cấp
+            promotion_source = source_square
+            promotion_target = target_square
+            game_state = "PROMOTION"
+            return True
+    return False
+
+def draw_promotion_screen(surface):
+    """Vẽ màn hình chọn phong cấp."""
+    global promotion_rects
+    promotion_rects = []
+    
+    # Overlay nửa trong suốt trên toàn màn hình
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 200))  # Màu đen với độ trong suốt 200/255
+    surface.blit(overlay, (0, 0))
+    
+    # Vẽ hộp chọn phong cấp
+    box_width = 400
+    box_height = 150
+    box_rect = pygame.Rect((WIDTH - box_width) // 2, (HEIGHT - box_height) // 2, box_width, box_height)
+    pygame.draw.rect(surface, MENU_BG_COLOR, box_rect, border_radius=10)
+    pygame.draw.rect(surface, WHITE, box_rect, 2, border_radius=10)
+    
+    # Vẽ tiêu đề
+    title_text = MENU_FONT.render("Chọn quân cờ phong cấp", True, TEXT_COLOR)
+    title_rect = title_text.get_rect(center=(WIDTH // 2, (HEIGHT - box_height) // 2 + 30))
+    surface.blit(title_text, title_rect)
+    
+    # Vẽ các lựa chọn phong cấp
+    piece_size = 60
+    piece_margin = 20
+    total_width = (piece_size + piece_margin) * 4 - piece_margin
+    start_x = (WIDTH - total_width) // 2
+    start_y = (HEIGHT - box_height) // 2 + 70
+    
+    # Xác định màu của quân cờ (theo màu của tốt đang phong cấp)
+    color_prefix = "w" if board.turn == chess.WHITE else "b"
+    
+    pieces = [
+        (chess.QUEEN, f"{color_prefix}Q"),
+        (chess.ROOK, f"{color_prefix}R"),
+        (chess.BISHOP, f"{color_prefix}B"),
+        (chess.KNIGHT, f"{color_prefix}N")
+    ]
+    
+    for i, (piece_type, symbol) in enumerate(pieces):
+        x = start_x + i * (piece_size + piece_margin)
+        
+        # Vẽ nền cho từng quân cờ
+        piece_rect = pygame.Rect(x, start_y, piece_size, piece_size)
+        pygame.draw.rect(surface, LIGHT_SQUARE, piece_rect, border_radius=5)
+        
+        # Vẽ quân cờ lên nền
+        if symbol in piece_images:
+            # Căn giữa quân cờ trong ô
+            center_x = x + (piece_size - SQUARE_SIZE) // 2
+            center_y = start_y + (piece_size - SQUARE_SIZE) // 2
+            surface.blit(piece_images[symbol], (center_x, center_y))
+            
+        # Lưu rect để kiểm tra click
+        promotion_rects.append((piece_rect, piece_type))
+
+
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
@@ -759,15 +843,16 @@ while running:
                                     selected_square = source_square = None
                         else:
                             target_square = clicked_square
+                            
+                            # Kiểm tra xem đây có phải nước đi phong cấp không
+                            if check_promotion(source_square, target_square):
+                                # Nếu là nước phong cấp, chuyển sang màn hình phong cấp
+                                # Các nước đi tiếp theo sẽ được xử lý ở trạng thái PROMOTION
+                                continue
+                                
                             move_to_try = chess.Move(source_square, target_square)
 
-                            piece_type = board.piece_type_at(source_square)
-                            if piece_type == chess.PAWN:
-                                target_rank = chess.square_rank(target_square)
-                                if (board.turn == chess.WHITE and target_rank == 7) or \
-                                   (board.turn == chess.BLACK and target_rank == 0):
-                                    move_to_try = chess.Move(source_square, target_square, promotion=chess.QUEEN)
-
+                            # Kiểm tra nước đi hợp lệ
                             if move_to_try in valid_moves_for_selected_piece:
                                 board.push(move_to_try)
                                 add_move_to_history(move_to_try)  # Thêm nước đi vào lịch sử
@@ -808,6 +893,47 @@ while running:
                     selected_square = source_square = None
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
+
+        elif game_state == "PROMOTION":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Click chuột trái
+                click_pos = pygame.mouse.get_pos()
+                
+                promotion_selected = False
+                # Kiểm tra xem người dùng đã click vào quân cờ nào để phong cấp
+                for piece_rect, piece_type in promotion_rects:
+                    if piece_rect.collidepoint(click_pos):
+                        # Tạo nước đi phong cấp với quân cờ được chọn
+                        promotion_move = chess.Move(promotion_source, promotion_target, promotion=piece_type)
+                        
+                        # Thực hiện nước đi
+                        if promotion_move in board.legal_moves:
+                            board.push(promotion_move)
+                            add_move_to_history(promotion_move)
+                            print(f"Player promotes to {chess.piece_name(piece_type)}")
+                            
+                            # Reset các biến và trở về trạng thái chơi
+                            selected_square = source_square = None
+                            valid_moves_for_selected_piece = []
+                            is_after_undo = False
+                            game_state = "PLAYING"
+                            
+                            # Kiểm tra kết thúc game
+                            if board.is_game_over():
+                                game_state = "GAME_OVER"
+                                game_over_message = get_game_over_message(board)
+                                print(f"Game Over: {game_over_message}")
+                            elif game_mode == "PVC" and board.turn == computer_color:
+                                computer_move_pending = True
+                                last_computer_move_time = current_time
+                            
+                            promotion_selected = True
+                            break
+                
+                # Nếu click ngoài các quân cờ phong cấp, hủy bỏ phong cấp
+                if not promotion_selected:
+                    # Chỉ hủy bỏ selection, không hủy toàn bộ phong cấp
+                    if not any(rect.collidepoint(click_pos) for rect, _ in promotion_rects):
+                        game_state = "PLAYING"  # Trở lại trạng thái chơi
 
         # --- Xử lý cuộn thanh bên ---
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -896,6 +1022,18 @@ while running:
         draw_pieces(board_surface, board)
         back_button_game_rect = draw_game_info(screen, board, game_mode)
         back_button_over_rect = draw_game_over(screen, game_over_message)
+
+    elif game_state == "PROMOTION":
+        board_surface = screen.subsurface(pygame.Rect(0, 0, BOARD_SIZE, BOARD_SIZE))
+        draw_board(board_surface)
+        if selected_square is not None:
+            highlight_square(board_surface, selected_square)
+            highlight_valid_moves(board_surface, valid_moves_for_selected_piece)
+        draw_pieces(board_surface, board)
+        back_button_game_rect = draw_game_info(screen, board, game_mode)
+        
+        # Vẽ màn hình phong cấp trên toàn màn hình
+        draw_promotion_screen(screen)
 
     pygame.display.flip()
     clock.tick(FPS)
