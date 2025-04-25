@@ -246,10 +246,15 @@ def draw_menu(surface):
                 if i == 0:  # Chế độ PVP
                     game_mode = "PVP"
                     game_state = "PLAYING"
+                    reset_move_history()  # Reset lịch sử nước đi khi bắt đầu trò chơi mới
+                    last_move = None
                 elif i == 1:  # Chế độ PVC
                     game_mode = "PVC"
                     game_state = "ENTER_ELO"
+                    elo_input = ""  # Reset ELO input
                     is_typing_elo = True
+                    reset_move_history()  # Reset lịch sử nước đi khi bắt đầu trò chơi mới
+                    last_move = None
 
                 print(f"Chế độ đã chọn: {game_mode}")
                 break
@@ -774,11 +779,15 @@ while running:
                         if i == 0:  # Chế độ PVP
                             game_mode = "PVP"
                             game_state = "PLAYING"
+                            reset_move_history()  # Reset lịch sử nước đi khi bắt đầu trò chơi mới
+                            last_move = None
                         elif i == 1:  # Chế độ PVC
                             game_mode = "PVC"
                             game_state = "ENTER_ELO"
                             elo_input = ""  # Reset ELO input
                             is_typing_elo = True
+                            reset_move_history()  # Reset lịch sử nước đi khi bắt đầu trò chơi mới
+                            last_move = None
 
                         print(f"Chế độ đã chọn: {game_mode}")
                         break
@@ -893,6 +902,8 @@ while running:
                     selected_square = source_square = None
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
+                    reset_move_history()  # Reset lịch sử nước đi khi quay lại menu từ game over
+                    last_move = None
 
         elif game_state == "PROMOTION":
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Click chuột trái
