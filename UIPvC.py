@@ -55,6 +55,7 @@ selected_square = None # Ô đang được chọn (dạng chess.Square index)
 source_square = None   # Ô gốc của quân cờ được chọn
 valid_moves_for_selected_piece = [] # Danh sách các đối tượng chess.Move hợp lệ
 botRating = 1200 # ELO của máy
+botWin = 0 # Biến theo dõi trạng thái thắng thua của bot: 1 = thắng, -1 = thua, 0 = chưa có kết quả hoặc hòa
 
 # Biến cho giao diện
 menu_buttons = []   # Lưu trữ Rect của các nút menu
@@ -234,16 +235,33 @@ def draw_game_info(surface, current_board, current_game_mode):
 
 def get_game_over_message(current_board):
      """Lấy thông báo kết thúc trò chơi dựa vào trạng thái bàn cờ."""
+     global botWin, computer_color
+     
      if current_board.is_checkmate():
          winner = "Black" if current_board.turn == chess.WHITE else "White"
+         # Cập nhật biến botWin dựa vào kết quả
+         if (winner == "Black" and computer_color == chess.BLACK) or (winner == "White" and computer_color == chess.WHITE):
+             botWin = 1  # Bot thắng
+             print("Bot wins! botWin =", botWin)
+         else:
+             botWin = -1  # Bot thua
+             print("Player wins! botWin =", botWin)
          return f"Checkmate! {winner} Wins."
      elif current_board.is_stalemate():
+         # Trường hợp hòa cờ, giữ nguyên botWin = 0
+         print("Draw game! botWin =", botWin)
          return "Stalemate! It's a Draw."
      elif current_board.is_insufficient_material():
+         # Trường hợp hòa cờ, giữ nguyên botWin = 0
+         print("Draw game! botWin =", botWin)
          return "Draw: Insufficient Material."
      elif current_board.is_seventyfive_moves():
-          return "Draw: 75-move rule."
+         # Trường hợp hòa cờ, giữ nguyên botWin = 0
+         print("Draw game! botWin =", botWin)
+         return "Draw: 75-move rule."
      elif current_board.is_fivefold_repetition():
+         # Trường hợp hòa cờ, giữ nguyên botWin = 0
+         print("Draw game! botWin =", botWin)
          return "Draw: Fivefold Repetition."
      else:
          # Có thể thêm các luật hòa khác nếu cần
@@ -364,6 +382,7 @@ while running:
                         white_timer = WHITE_TIME
                         black_timer = BLACK_TIME
                         last_timer_update = pygame.time.get_ticks()
+                        botWin = 0  # Reset botWin về 0 khi bắt đầu trò chơi mới
 
                         if i == 0:  # Chế độ PVC
                             game_mode = "PVC"
@@ -407,6 +426,7 @@ while running:
                     selected_square = source_square = None
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
+                    botWin = 0  # Reset botWin về 0 khi quay lại menu từ chế độ chơi
                     continue
 
                 # Xác định xem người chơi có được tương tác không
@@ -468,6 +488,7 @@ while running:
         elif game_state == "GAME_OVER":
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 click_pos = pygame.mouse.get_pos()
+                print("Flag Bot Win",botWin)
                 if back_button_over_rect and back_button_over_rect.collidepoint(click_pos):
                     game_state = "MENU"
                     game_mode = None
@@ -475,6 +496,8 @@ while running:
                     selected_square = source_square = None
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
+                    
+                    botWin = 0  # Reset botWin về 0 khi quay lại menu từ màn hình Game Over
 
     # --- Cập nhật trạng thái ---
     update_timers()

@@ -32,7 +32,8 @@ BUTTON_HOVER_COLOR = (100, 100, 100)
 TEXT_COLOR = (220, 220, 220)
 
 # Font chữ (Thử dùng font hệ thống, nếu lỗi sẽ dùng font mặc định)
-botRating = 1200#tên biến lưu elo của bot
+botRating = 1200 #tên biến lưu elo của bot
+botWin = 0 #biến theo dõi trạng thái thắng thua của bot: 1 = thắng, -1 = thua, 0 = chưa có kết quả hoặc hòa
 try:
     MENU_FONT = pygame.font.SysFont("consolas", 30)
     MSG_FONT = pygame.font.SysFont("consolas", 20)
@@ -333,16 +334,36 @@ def draw_game_info(surface, current_board, current_game_mode):
 
 def get_game_over_message(current_board):
     """Lấy thông báo kết thúc trò chơi dựa vào trạng thái bàn cờ."""
+    global botWin, game_mode, computer_color
+    
     if current_board.is_checkmate():
         winner = "Black" if current_board.turn == chess.WHITE else "White"
+        
+        # Cập nhật biến botWin nếu đang ở chế độ PVC
+        if game_mode == "PVC":
+            if (winner == "Black" and computer_color == chess.BLACK) or (winner == "White" and computer_color == chess.WHITE):
+                botWin = 1  # Bot thắng
+                print("Bot wins! botWin =", botWin)
+            else:
+                botWin = -1  # Bot thua
+                print("Player wins! botWin =", botWin)
+        
         return f"Checkmate! {winner} Wins."
     elif current_board.is_stalemate():
+        # Trường hợp hòa cờ, giữ nguyên botWin = 0
+        print("Draw game! botWin =", botWin)
         return "Stalemate! It's a Draw."
     elif current_board.is_insufficient_material():
+        # Trường hợp hòa cờ, giữ nguyên botWin = 0
+        print("Draw game! botWin =", botWin)
         return "Draw: Insufficient Material."
     elif current_board.is_seventyfive_moves():
+        # Trường hợp hòa cờ, giữ nguyên botWin = 0
+        print("Draw game! botWin =", botWin)
         return "Draw: 75-move rule."
     elif current_board.is_fivefold_repetition():
+        # Trường hợp hòa cờ, giữ nguyên botWin = 0
+        print("Draw game! botWin =", botWin)
         return "Draw: Fivefold Repetition."
     else:
         # Có thể thêm các luật hòa khác nếu cần
@@ -872,6 +893,7 @@ while running:
                     reset_move_history()  # Reset lịch sử nước đi
                     elo_input = 0
                     is_typing_elo = False
+                    botWin = 0  # Reset botWin về 0 khi quay lại menu
                     continue
 
                 # Xác định xem người chơi có được tương tác không
@@ -946,6 +968,9 @@ while running:
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
                     reset_move_history()  # Reset lịch sử nước đi khi quay lại menu từ game over
+                    elo_input = 0
+                    is_typing_elo = False
+                    botWin = 0  # Reset botWin về 0 khi quay lại menu
                     last_move = None
 
         elif game_state == "PROMOTION":
