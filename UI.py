@@ -10,7 +10,7 @@ import time
 pygame.init()
 
 # Kích thước màn hình và bàn cờ
-TOP_MARGIN = 80
+TOP_MARGIN = 50
 WIDTH, HEIGHT = 900, 800  # Tăng chiều rộng để thêm sidebar
 BOARD_SIZE = 640  # Kích thước bàn cờ (nên chia hết cho 8)
 SQUARE_SIZE = BOARD_SIZE // 9
@@ -74,6 +74,7 @@ piece_images = {}  # Lưu trữ ảnh quân cờ đã tải và resize
 selected_square = None  # Ô đang được chọn (dạng chess.Square index)
 source_square = None  # Ô gốc của quân cờ được chọn
 valid_moves_for_selected_piece = []  # Danh sách các đối tượng chess.Move hợp lệ
+last_move = None  # Lưu trữ nước đi cuối cùng
 
 # --- Biến lịch sử nước đi ---
 move_history = []  # Lưu trữ tất cả các nước đi
@@ -445,25 +446,34 @@ def add_move_to_history(move):
 
 def undo_move():
     """Hoàn tác nước đi gần nhất."""
-    global board, current_move_index, is_after_undo
+    global board, current_move_index, is_after_undo, last_move
     
     if current_move_index >= 0:
         board.pop()
         current_move_index -= 1
         is_after_undo = True
+        
+        # Cập nhật last_move sau khi undo
+        if current_move_index >= 0:
+            last_move = move_history[current_move_index]
+        else:
+            last_move = None
+            
         print(f"Hoàn tác nước đi, hiện tại ở vị trí {current_move_index + 1}")
         return True
     return False
 
 def redo_move():
     """Làm lại nước đi đã hoàn tác."""
-    global board, current_move_index, move_history, is_after_undo
+    global board, current_move_index, move_history, is_after_undo, last_move
     
     if current_move_index < len(move_history) - 1:
         next_move = move_history[current_move_index + 1]
         board.push(next_move)
         current_move_index += 1
         is_after_undo = True
+        # Cập nhật last_move sau khi redo
+        last_move = next_move
         print(f"Làm lại nước đi, hiện tại ở vị trí {current_move_index + 1}")
         return True
     return False
@@ -654,7 +664,7 @@ def handle_sidebar_click(click_pos):
 
 def jump_to_move(move_idx):
     """Nhảy đến vị trí cụ thể trong lịch sử nước đi."""
-    global board, current_move_index, is_after_undo
+    global board, current_move_index, is_after_undo, last_move
     
     if move_idx < 0 or move_idx >= len(move_history):
         return False
@@ -670,6 +680,9 @@ def jump_to_move(move_idx):
     board = new_board
     current_move_index = move_idx
     is_after_undo = True
+    
+    # Cập nhật last_move để highlight nước đi hiện tại
+    last_move = move_history[move_idx]
     
     return True
 
@@ -747,6 +760,35 @@ def draw_promotion_screen(surface):
             
         # Lưu rect để kiểm tra click
         promotion_rects.append((piece_rect, piece_type))
+
+def highlight_last_move(surface, move, game_current_state):
+    """Highlight nước đi vừa thực hiện, chỉ làm khi đang trong trạng thái chơi."""
+    # Chỉ highlight khi đang ở trạng thái PLAYING
+    if game_current_state != "PLAYING" or move is None:
+        return
+    
+    # Tạo màu cho highlight nước đi cuối cùng (màu xanh lá nhạt với độ trong suốt)
+    LAST_MOVE_COLOR = (100, 200, 100, 150)  # Màu xanh lá nhạt, khác với màu highlight thông thường
+    
+    # Vẽ highlight cho ô nguồn
+    if move.from_square is not None:
+        file = chess.square_file(move.from_square)
+        rank = chess.square_rank(move.from_square)
+        screen_y = (7 - rank) * SQUARE_SIZE + TOP_MARGIN
+        screen_x = file * SQUARE_SIZE
+        highlight_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+        highlight_surface.fill(LAST_MOVE_COLOR)
+        surface.blit(highlight_surface, (screen_x, screen_y))
+    
+    # Vẽ highlight cho ô đích
+    if move.to_square is not None:
+        file = chess.square_file(move.to_square)
+        rank = chess.square_rank(move.to_square)
+        screen_y = (7 - rank) * SQUARE_SIZE + TOP_MARGIN
+        screen_x = file * SQUARE_SIZE
+        highlight_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+        highlight_surface.fill(LAST_MOVE_COLOR)
+        surface.blit(highlight_surface, (screen_x, screen_y))
 
 
 # --- Vòng lặp chính ---
@@ -865,6 +907,7 @@ while running:
                             if move_to_try in valid_moves_for_selected_piece:
                                 board.push(move_to_try)
                                 add_move_to_history(move_to_try)  # Thêm nước đi vào lịch sử
+                                last_move = move_to_try  # Lưu nước đi cuối cùng
                                 is_after_undo = False  # Người chơi đã đi, reset cờ
                                 print(f"Player ({'White' if board.turn != chess.WHITE else 'Black'}) moves: {move_to_try.uci()}")
                                 selected_square = source_square = None
@@ -988,6 +1031,7 @@ while running:
         if computer_move:
             board.push(computer_move)
             add_move_to_history(computer_move)  # Thêm nước đi vào lịch sử
+            last_move = computer_move  # Cập nhật last_move khi máy tính đi
             print(f"Computer moves: {computer_move.uci()}")
             if board.is_game_over():
                 game_state = "GAME_OVER"
@@ -1002,6 +1046,7 @@ while running:
         menu_buttons = draw_menu(screen)
         back_button_game_rect = None
         back_button_over_rect = None
+        last_move = None  # Đảm bảo xóa highlight khi quay về menu
     elif game_state == "ENTER_ELO":
         # Vẽ textfield để nhập ELO
         pygame.draw.rect(screen, WHITE, pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 - 20, 200, 40), border_radius=5)
@@ -1013,6 +1058,8 @@ while running:
     elif game_state == "PLAYING":
         board_surface = screen.subsurface(pygame.Rect(0, 0, BOARD_SIZE, BOARD_SIZE))
         draw_board(board_surface)
+        # Vẽ highlight cho nước đi cuối cùng trước khi vẽ highlight cho ô được chọn
+        highlight_last_move(screen, last_move, game_state)
         if selected_square is not None:
             highlight_square(board_surface, selected_square)
             highlight_valid_moves(board_surface, valid_moves_for_selected_piece)
@@ -1045,6 +1092,9 @@ while running:
         
         # Vẽ màn hình phong cấp trên toàn màn hình
         draw_promotion_screen(screen)
+
+    # --- Highlight nước đi cuối cùng ---
+    highlight_last_move(screen, last_move, game_state)
 
     pygame.display.flip()
     clock.tick(FPS)
