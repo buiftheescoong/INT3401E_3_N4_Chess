@@ -475,7 +475,7 @@ def draw_move_history_sidebar(surface):
     undo_button_rect = pygame.Rect(SIDEBAR_X + 10, 60, button_width, button_height)
     undo_color = BUTTON_COLOR if current_move_index >= 0 else (50, 50, 50)
     pygame.draw.rect(surface, undo_color, undo_button_rect, border_radius=5)
-    undo_text = MSG_FONT.render("Hoàn tác", True, TEXT_COLOR)
+    undo_text = MSG_FONT.render("Undo", True, TEXT_COLOR)
     undo_text_rect = undo_text.get_rect(center=undo_button_rect.center)
     surface.blit(undo_text, undo_text_rect)
     
@@ -483,7 +483,7 @@ def draw_move_history_sidebar(surface):
     redo_button_rect = pygame.Rect(SIDEBAR_X + 10, 60 + button_height + button_margin, button_width, button_height)
     redo_color = BUTTON_COLOR if current_move_index < len(move_history) - 1 else (50, 50, 50)
     pygame.draw.rect(surface, redo_color, redo_button_rect, border_radius=5)
-    redo_text = MSG_FONT.render("Làm lại", True, TEXT_COLOR)
+    redo_text = MSG_FONT.render("Redo", True, TEXT_COLOR)
     redo_text_rect = redo_text.get_rect(center=redo_button_rect.center)
     surface.blit(redo_text, redo_text_rect)
     
