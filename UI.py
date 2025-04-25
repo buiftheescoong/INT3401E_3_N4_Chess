@@ -17,6 +17,7 @@ SQUARE_SIZE = BOARD_SIZE // 9
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
 SIDEBAR_WIDTH = 250  # Chiều rộng của sidebar
 SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
+SIDEBAR_HEIGHT = BOARD_SIZE  # Chiều cao của sidebar (chỉ đến hết bàn cờ)
 
 # Màu sắc
 WHITE = (255, 255, 255)
@@ -72,6 +73,15 @@ current_move_index = -1  # Vị trí hiện tại trong lịch sử nước đi
 undo_button_rect = None  # Rect của nút Undo
 redo_button_rect = None  # Rect của nút Redo
 is_after_undo = False  # Cờ để ngăn máy đi ngay sau khi undo
+
+# --- Biến cho thanh cuộn ---
+scroll_dragging = False  # Đang kéo thanh cuộn
+thumb_rect = None  # Rect của nút cuộn (thumb)
+scroll_start_y = 0  # Vị trí y ban đầu khi bắt đầu kéo
+scroll_offset = 0  # Vị trí hiện tại của thanh cuộn (0 -> 1)
+scrollbar_track_rect = None  # Rect của vùng thanh cuộn
+move_list_rects = []  # Danh sách rect của các nước đi được hiển thị
+
 
 # Biến cho giao diện
 menu_buttons = []  # Lưu trữ Rect của các nút menu
@@ -454,12 +464,15 @@ def reset_move_history():
 
 def draw_move_history_sidebar(surface):
     """Vẽ sidebar chứa lịch sử nước đi và nút undo/redo."""
-    global undo_button_rect, redo_button_rect
+    global undo_button_rect, redo_button_rect, thumb_rect, scrollbar_track_rect, move_list_rects
+    
+    # Reset danh sách các rect cho mỗi nước đi
+    move_list_rects = []
     
     # Vẽ nền sidebar
-    sidebar_rect = pygame.Rect(SIDEBAR_X, 0, SIDEBAR_WIDTH, HEIGHT)
+    sidebar_rect = pygame.Rect(SIDEBAR_X, 0, SIDEBAR_WIDTH, SIDEBAR_HEIGHT)
     pygame.draw.rect(surface, MENU_BG_COLOR, sidebar_rect)
-    pygame.draw.line(surface, WHITE, (SIDEBAR_X, 0), (SIDEBAR_X, HEIGHT), 2)
+    pygame.draw.line(surface, WHITE, (SIDEBAR_X, 0), (SIDEBAR_X, SIDEBAR_HEIGHT), 2)
     
     # Vẽ tiêu đề
     title_surf = MSG_FONT.render("Lịch sử nước đi", True, TEXT_COLOR)
@@ -487,17 +500,69 @@ def draw_move_history_sidebar(surface):
     redo_text_rect = redo_text.get_rect(center=redo_button_rect.center)
     surface.blit(redo_text, redo_text_rect)
     
-    # Vẽ danh sách nước đi
+    # Vẽ danh sách nước đi với thanh cuộn
     move_list_start_y = 60 + (button_height + button_margin) * 2 + 20
     move_height = 25
-    max_visible_moves = (HEIGHT - move_list_start_y) // move_height
+    
+    # Tính toán khu vực hiển thị danh sách nước đi
+    list_view_height = SIDEBAR_HEIGHT - move_list_start_y - 20  # Trừ padding dưới
+    max_visible_moves = list_view_height // move_height
+    
+    # Vẽ khung danh sách nước đi
+    list_view_rect = pygame.Rect(SIDEBAR_X + 10, move_list_start_y, 
+                                SIDEBAR_WIDTH - 30, list_view_height)
+    pygame.draw.rect(surface, (30, 30, 30), list_view_rect, border_radius=5)
+    
+    # Vẽ thanh cuộn
+    scrollbar_width = 10
+    scrollbar_track_rect = pygame.Rect(SIDEBAR_X + SIDEBAR_WIDTH - 20, move_list_start_y, 
+                                       scrollbar_width, list_view_height)
+    pygame.draw.rect(surface, (70, 70, 70), scrollbar_track_rect, border_radius=5)
     
     if move_history:
-        # Xác định phạm vi hiển thị dựa trên chỉ số hiện tại
-        start_idx = max(0, min(current_move_index - max_visible_moves//2, 
-                              len(move_history) - max_visible_moves))
-        end_idx = min(start_idx + max_visible_moves, len(move_history))
+        total_moves = len(move_history)
         
+        # Tính vị trí bắt đầu hiển thị
+        if total_moves <= max_visible_moves:
+            # Hiển thị tất cả nếu có thể
+            start_idx = 0
+            scroll_ratio = 0  # Không cần cuộn
+            thumb_height = list_view_height
+        else:
+            # Vị trí cuộn dựa vào current_move_index hoặc scroll_offset
+            if current_move_index >= 0:
+                # Tự động cuộn để hiển thị nước đi hiện tại
+                scroll_ratio = min(1, max(0, current_move_index / (total_moves - 1)))
+            else:
+                scroll_ratio = scroll_offset
+            
+            # Vị trí bắt đầu để current_move_index nằm gần giữa viewport
+            middle_offset = max_visible_moves // 2
+            if current_move_index < middle_offset:
+                start_idx = 0
+            elif current_move_index >= total_moves - middle_offset:
+                start_idx = max(0, total_moves - max_visible_moves)
+            else:
+                start_idx = max(0, current_move_index - middle_offset)
+            
+            # Áp dụng vị trí cuộn thủ công nếu người dùng đang cuộn
+            if scroll_dragging:
+                start_idx = int(scroll_ratio * (total_moves - max_visible_moves))
+                start_idx = max(0, min(start_idx, total_moves - max_visible_moves))
+            
+            # Vẽ thumb với kích thước tỷ lệ với số nước có thể thấy
+            thumb_height = max(50, list_view_height * max_visible_moves / total_moves)
+            
+        # Tính vị trí thumb
+        thumb_y = move_list_start_y + (list_view_height - thumb_height) * scroll_ratio
+        thumb_rect = pygame.Rect(SIDEBAR_X + SIDEBAR_WIDTH - 20, thumb_y, 
+                                scrollbar_width, thumb_height)
+        pygame.draw.rect(surface, BUTTON_COLOR, thumb_rect, border_radius=5)
+        
+        end_idx = min(start_idx + max_visible_moves, total_moves)
+        
+        # Vẽ các nước đi trong vùng nhìn thấy
+        move_list_rects = []  # Lưu rect của các nước đi
         for i, move in enumerate(move_history[start_idx:end_idx]):
             idx = start_idx + i
             # Định dạng số nước đi (ví dụ: "1. e2e4" cho trắng, "1... e7e5" cho đen)
@@ -510,15 +575,37 @@ def draw_move_history_sidebar(surface):
             
             # Highlight nước đi hiện tại
             text_color = (255, 255, 0) if idx == current_move_index else TEXT_COLOR
+            bg_color = (50, 50, 50) if idx == current_move_index else None
+            
             move_surf = MSG_FONT.render(move_text, True, text_color)
-            y_pos = move_list_start_y + i * move_height
-            move_rect = move_surf.get_rect(x=SIDEBAR_X + 15, y=y_pos)
-            surface.blit(move_surf, move_rect)
+            y_pos = move_list_start_y + 5 + i * move_height
+            
+            # Vẽ text trong vùng hiển thị
+            if move_list_start_y <= y_pos < move_list_start_y + list_view_height - move_height:
+                clip_rect = pygame.Rect(SIDEBAR_X + 15, move_list_start_y, 
+                                      SIDEBAR_WIDTH - 35, list_view_height)
+                old_clip = surface.get_clip()
+                surface.set_clip(clip_rect)
+                
+                # Lưu rect cho việc kiểm tra click
+                move_rect = pygame.Rect(SIDEBAR_X + 15, y_pos, SIDEBAR_WIDTH - 45, move_height)
+                move_list_rects.append((move_rect, idx))
+                
+                # Vẽ background cho nước đi được chọn
+                if bg_color:
+                    pygame.draw.rect(surface, bg_color, move_rect, border_radius=3)
+                
+                text_rect = move_surf.get_rect(x=SIDEBAR_X + 15, y=y_pos)
+                surface.blit(move_surf, text_rect)
+                
+                surface.set_clip(old_clip)
+
 
 def handle_sidebar_click(click_pos):
     """Xử lý các click trên sidebar."""
-    global undo_button_rect, redo_button_rect
+    global undo_button_rect, redo_button_rect, board, current_move_index, is_after_undo, thumb_rect, scrollbar_track_rect, move_list_rects, scroll_dragging
     
+    # Xử lý click vào các nút Undo/Redo
     if undo_button_rect and undo_button_rect.collidepoint(click_pos):
         if undo_move():
             return True
@@ -526,8 +613,52 @@ def handle_sidebar_click(click_pos):
     if redo_button_rect and redo_button_rect.collidepoint(click_pos):
         if redo_move():
             return True
+            
+    # Xử lý click vào thanh cuộn
+    if scrollbar_track_rect and scrollbar_track_rect.collidepoint(click_pos):
+        if thumb_rect and thumb_rect.collidepoint(click_pos):
+            # Đã xử lý ở phần event MOUSEBUTTONDOWN
+            scroll_dragging = True
+            return True
+        else:
+            # Click vào track (không phải thumb) - cuộn nhanh đến vị trí đó
+            track_height = scrollbar_track_rect.height
+            relative_y = click_pos[1] - scrollbar_track_rect.y
+            global scroll_offset
+            scroll_offset = relative_y / track_height
+            if scroll_offset < 0: scroll_offset = 0
+            if scroll_offset > 1: scroll_offset = 1
+            return True
     
+    # Xử lý click vào một nước đi cụ thể trong lịch sử
+    for move_rect, move_idx in move_list_rects:
+        if move_rect.collidepoint(click_pos):
+            # Nhảy đến vị trí đã chọn
+            jump_to_move(move_idx)
+            return True
+            
     return False
+
+def jump_to_move(move_idx):
+    """Nhảy đến vị trí cụ thể trong lịch sử nước đi."""
+    global board, current_move_index, is_after_undo
+    
+    if move_idx < 0 or move_idx >= len(move_history):
+        return False
+        
+    # Tạo bàn cờ mới từ đầu
+    new_board = chess.Board()
+    
+    # Áp dụng các nước đi cho đến vị trí được chọn
+    for i in range(move_idx + 1):
+        new_board.push(move_history[i])
+        
+    # Cập nhật bàn cờ và chỉ số hiện tại
+    board = new_board
+    current_move_index = move_idx
+    is_after_undo = True
+    
+    return True
 
 # --- Vòng lặp chính ---
 load_piece_images()
@@ -678,6 +809,35 @@ while running:
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
 
+        # --- Xử lý cuộn thanh bên ---
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 4:  # Cuộn lên
+                scroll_offset -= 0.1
+                if scroll_offset < 0:
+                    scroll_offset = 0
+            elif event.button == 5:  # Cuộn xuống
+                scroll_offset += 0.1
+                if scroll_offset > 1:
+                    scroll_offset = 1
+            elif event.button == 1:  # Nhấn chuột trái để kéo
+                if thumb_rect and thumb_rect.collidepoint(mouse_pos):
+                    scroll_dragging = True
+                    scroll_start_y = mouse_pos[1]
+
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:  # Thả chuột trái
+                scroll_dragging = False
+
+        elif event.type == pygame.MOUSEMOTION:
+            if scroll_dragging:
+                dy = mouse_pos[1] - scroll_start_y
+                scroll_start_y = mouse_pos[1]
+                scroll_offset += dy / (SIDEBAR_HEIGHT - 50)  # 50 là chiều cao của thumb
+                if scroll_offset < 0:
+                    scroll_offset = 0
+                elif scroll_offset > 1:
+                    scroll_offset = 1
+
     # --- Cập nhật trạng thái ---
     update_timers()
 
@@ -720,7 +880,6 @@ while running:
             highlight_square(board_surface, selected_square)
             highlight_valid_moves(board_surface, valid_moves_for_selected_piece)
         draw_pieces(board_surface, board)
-        draw_move_history_sidebar(screen)
         back_button_game_rect = draw_game_info(screen, board, game_mode)
         back_button_over_rect = None
 
@@ -728,6 +887,7 @@ while running:
         draw_timer(screen, black_timer, is_top=True)
         draw_timer(screen, white_timer, is_top=False)
 
+        draw_move_history_sidebar(screen)
         # Vẽ sidebar lịch sử nước đi
 
     elif game_state == "GAME_OVER":
