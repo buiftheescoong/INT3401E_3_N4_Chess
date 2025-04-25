@@ -11,10 +11,12 @@ pygame.init()
 
 # Kích thước màn hình và bàn cờ
 TOP_MARGIN = 80
-WIDTH, HEIGHT = 800, 800  # Chiều cao lớn hơn để chứa menu/thông báo
+WIDTH, HEIGHT = 900, 800  # Tăng chiều rộng để thêm sidebar
 BOARD_SIZE = 640  # Kích thước bàn cờ (nên chia hết cho 8)
 SQUARE_SIZE = BOARD_SIZE // 9
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
+SIDEBAR_WIDTH = 250  # Chiều rộng của sidebar
+SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
 
 # Màu sắc
 WHITE = (255, 255, 255)
@@ -63,6 +65,13 @@ piece_images = {}  # Lưu trữ ảnh quân cờ đã tải và resize
 selected_square = None  # Ô đang được chọn (dạng chess.Square index)
 source_square = None  # Ô gốc của quân cờ được chọn
 valid_moves_for_selected_piece = []  # Danh sách các đối tượng chess.Move hợp lệ
+
+# --- Biến lịch sử nước đi ---
+move_history = []  # Lưu trữ tất cả các nước đi
+current_move_index = -1  # Vị trí hiện tại trong lịch sử nước đi
+undo_button_rect = None  # Rect của nút Undo
+redo_button_rect = None  # Rect của nút Redo
+is_after_undo = False  # Cờ để ngăn máy đi ngay sau khi undo
 
 # Biến cho giao diện
 menu_buttons = []  # Lưu trữ Rect của các nút menu
@@ -397,6 +406,129 @@ def update_timers():
                 print("White wins! Black ran out of time.")
 
 
+# --- Hàm xử lý lịch sử nước đi ---
+def add_move_to_history(move):
+    """Thêm nước đi vào lịch sử."""
+    global move_history, current_move_index
+    
+    # Nếu chúng ta đang ở giữa lịch sử và đi một nước mới,
+    # cắt bỏ lịch sử từ vị trí hiện tại
+    if current_move_index < len(move_history) - 1:
+        move_history = move_history[:current_move_index + 1]
+    
+    move_history.append(move)
+    current_move_index = len(move_history) - 1
+    print(f"Thêm nước đi vào lịch sử: {move.uci()}, index: {current_move_index}")
+
+def undo_move():
+    """Hoàn tác nước đi gần nhất."""
+    global board, current_move_index, is_after_undo
+    
+    if current_move_index >= 0:
+        board.pop()
+        current_move_index -= 1
+        is_after_undo = True
+        print(f"Hoàn tác nước đi, hiện tại ở vị trí {current_move_index + 1}")
+        return True
+    return False
+
+def redo_move():
+    """Làm lại nước đi đã hoàn tác."""
+    global board, current_move_index, move_history, is_after_undo
+    
+    if current_move_index < len(move_history) - 1:
+        next_move = move_history[current_move_index + 1]
+        board.push(next_move)
+        current_move_index += 1
+        is_after_undo = True
+        print(f"Làm lại nước đi, hiện tại ở vị trí {current_move_index + 1}")
+        return True
+    return False
+
+def reset_move_history():
+    """Đặt lại lịch sử nước đi."""
+    global move_history, current_move_index
+    move_history = []
+    current_move_index = -1
+    print("Đặt lại lịch sử nước đi")
+
+def draw_move_history_sidebar(surface):
+    """Vẽ sidebar chứa lịch sử nước đi và nút undo/redo."""
+    global undo_button_rect, redo_button_rect
+    
+    # Vẽ nền sidebar
+    sidebar_rect = pygame.Rect(SIDEBAR_X, 0, SIDEBAR_WIDTH, HEIGHT)
+    pygame.draw.rect(surface, MENU_BG_COLOR, sidebar_rect)
+    pygame.draw.line(surface, WHITE, (SIDEBAR_X, 0), (SIDEBAR_X, HEIGHT), 2)
+    
+    # Vẽ tiêu đề
+    title_surf = MSG_FONT.render("Lịch sử nước đi", True, TEXT_COLOR)
+    title_rect = title_surf.get_rect(center=(SIDEBAR_X + SIDEBAR_WIDTH // 2, 30))
+    surface.blit(title_surf, title_rect)
+    
+    # Vẽ nút undo và redo
+    button_width = SIDEBAR_WIDTH - 20
+    button_height = 40
+    button_margin = 10
+    
+    # Nút Undo (chỉ kích hoạt nếu có nước để undo)
+    undo_button_rect = pygame.Rect(SIDEBAR_X + 10, 60, button_width, button_height)
+    undo_color = BUTTON_COLOR if current_move_index >= 0 else (50, 50, 50)
+    pygame.draw.rect(surface, undo_color, undo_button_rect, border_radius=5)
+    undo_text = MSG_FONT.render("Hoàn tác", True, TEXT_COLOR)
+    undo_text_rect = undo_text.get_rect(center=undo_button_rect.center)
+    surface.blit(undo_text, undo_text_rect)
+    
+    # Nút Redo (chỉ kích hoạt nếu có nước để redo)
+    redo_button_rect = pygame.Rect(SIDEBAR_X + 10, 60 + button_height + button_margin, button_width, button_height)
+    redo_color = BUTTON_COLOR if current_move_index < len(move_history) - 1 else (50, 50, 50)
+    pygame.draw.rect(surface, redo_color, redo_button_rect, border_radius=5)
+    redo_text = MSG_FONT.render("Làm lại", True, TEXT_COLOR)
+    redo_text_rect = redo_text.get_rect(center=redo_button_rect.center)
+    surface.blit(redo_text, redo_text_rect)
+    
+    # Vẽ danh sách nước đi
+    move_list_start_y = 60 + (button_height + button_margin) * 2 + 20
+    move_height = 25
+    max_visible_moves = (HEIGHT - move_list_start_y) // move_height
+    
+    if move_history:
+        # Xác định phạm vi hiển thị dựa trên chỉ số hiện tại
+        start_idx = max(0, min(current_move_index - max_visible_moves//2, 
+                              len(move_history) - max_visible_moves))
+        end_idx = min(start_idx + max_visible_moves, len(move_history))
+        
+        for i, move in enumerate(move_history[start_idx:end_idx]):
+            idx = start_idx + i
+            # Định dạng số nước đi (ví dụ: "1. e2e4" cho trắng, "1... e7e5" cho đen)
+            if idx % 2 == 0:  # Nước đi của trắng
+                move_number = (idx // 2) + 1
+                move_text = f"{move_number}. {move.uci()}"
+            else:  # Nước đi của đen
+                move_number = (idx // 2) + 1
+                move_text = f"{move_number}... {move.uci()}"
+            
+            # Highlight nước đi hiện tại
+            text_color = (255, 255, 0) if idx == current_move_index else TEXT_COLOR
+            move_surf = MSG_FONT.render(move_text, True, text_color)
+            y_pos = move_list_start_y + i * move_height
+            move_rect = move_surf.get_rect(x=SIDEBAR_X + 15, y=y_pos)
+            surface.blit(move_surf, move_rect)
+
+def handle_sidebar_click(click_pos):
+    """Xử lý các click trên sidebar."""
+    global undo_button_rect, redo_button_rect
+    
+    if undo_button_rect and undo_button_rect.collidepoint(click_pos):
+        if undo_move():
+            return True
+    
+    if redo_button_rect and redo_button_rect.collidepoint(click_pos):
+        if redo_move():
+            return True
+    
+    return False
+
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
@@ -455,6 +587,14 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Click chuột trái
                 click_pos = pygame.mouse.get_pos()
 
+                # Kiểm tra click trên sidebar trước
+                if click_pos[0] >= SIDEBAR_X:
+                    if handle_sidebar_click(click_pos):
+                        # Reset selection sau khi undo/redo
+                        selected_square = source_square = None
+                        valid_moves_for_selected_piece = []
+                        continue
+
                 # Kiểm tra click nút Back to Menu
                 if back_button_game_rect and back_button_game_rect.collidepoint(click_pos):
                     game_state = "MENU"
@@ -463,6 +603,7 @@ while running:
                     selected_square = source_square = None
                     valid_moves_for_selected_piece = []
                     computer_move_pending = False
+                    reset_move_history()  # Reset lịch sử nước đi
                     elo_input = 0
                     is_typing_elo = False
                     continue
@@ -498,6 +639,8 @@ while running:
 
                             if move_to_try in valid_moves_for_selected_piece:
                                 board.push(move_to_try)
+                                add_move_to_history(move_to_try)  # Thêm nước đi vào lịch sử
+                                is_after_undo = False  # Người chơi đã đi, reset cờ
                                 print(f"Player ({'White' if board.turn != chess.WHITE else 'Black'}) moves: {move_to_try.uci()}")
                                 selected_square = source_square = None
                                 valid_moves_for_selected_piece = []
@@ -505,6 +648,9 @@ while running:
                                     game_state = "GAME_OVER"
                                     game_over_message = get_game_over_message(board)
                                     print(f"Game Over: {game_over_message}")
+                                elif game_mode == "PVC":
+                                    computer_move_pending = True
+                                    last_computer_move_time = current_time
 
                             elif piece_at_click and piece_at_click.color == board.turn:
                                 selected_square = clicked_square
@@ -536,7 +682,7 @@ while running:
     update_timers()
 
     # Máy đi cờ (nếu đến lượt và không có pending move)
-    if game_mode == "PVC" and board.turn == computer_color and not computer_move_pending and game_state == "PLAYING":
+    if game_mode == "PVC" and board.turn == computer_color and not computer_move_pending and game_state == "PLAYING" and not is_after_undo:
         computer_move_pending = True
         last_computer_move_time = current_time
 
@@ -544,6 +690,7 @@ while running:
         computer_move = make_random_computer_move(board)
         if computer_move:
             board.push(computer_move)
+            add_move_to_history(computer_move)  # Thêm nước đi vào lịch sử
             print(f"Computer moves: {computer_move.uci()}")
             if board.is_game_over():
                 game_state = "GAME_OVER"
@@ -573,12 +720,15 @@ while running:
             highlight_square(board_surface, selected_square)
             highlight_valid_moves(board_surface, valid_moves_for_selected_piece)
         draw_pieces(board_surface, board)
+        draw_move_history_sidebar(screen)
         back_button_game_rect = draw_game_info(screen, board, game_mode)
         back_button_over_rect = None
 
         # Vẽ đồng hồ
         draw_timer(screen, black_timer, is_top=True)
         draw_timer(screen, white_timer, is_top=False)
+
+        # Vẽ sidebar lịch sử nước đi
 
     elif game_state == "GAME_OVER":
         board_surface = screen.subsurface(pygame.Rect(0, 0, BOARD_SIZE, BOARD_SIZE))
