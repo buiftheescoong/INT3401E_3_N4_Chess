@@ -289,7 +289,7 @@ def draw_game_info(surface, current_board, current_game_mode):
 
     # Elo ratings
     if current_game_mode == "PVC":
-        elo_text = f"Số elo của người : {elo_input}    Số elo của máy : {botRating}"
+        elo_text = f"Player's Elo : {elo_input}    Computer's Elo : {botRating}"
         elo_surf = MSG_FONT.render(elo_text, True, TEXT_COLOR)
         elo_rect = elo_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.5))
         surface.blit(elo_surf, elo_rect)
