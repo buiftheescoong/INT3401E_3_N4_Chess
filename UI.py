@@ -78,6 +78,11 @@ source_square = None  # Ô gốc của quân cờ được chọn
 valid_moves_for_selected_piece = []  # Danh sách các đối tượng chess.Move hợp lệ
 last_move = None  # Lưu trữ nước đi cuối cùng
 
+# --- Thêm biến theo dõi thời gian suy nghĩ của bot ---
+bot_thinking_start_time = 0  # Thời điểm bot bắt đầu suy nghĩ
+bot_is_thinking = False  # Trạng thái bot đang suy nghĩ
+
+
 # --- Biến lịch sử nước đi ---
 move_history = []  # Lưu trữ tất cả các nước đi
 current_move_index = -1  # Vị trí hiện tại trong lịch sử nước đi
@@ -407,18 +412,58 @@ def get_square_from_mouse(pos):
 
 # --- Logic Máy Chơi ---
 def make_random_computer_move(current_board):
-    """Thêm code"""
-    move, type = get_best_move(current_board)
-    if move:
-        print(type)
-        return move
-    else:
+    """Lấy nước đi tốt nhất từ bot và cập nhật thời gian trong khi bot đang suy nghĩ."""
+    global black_timer, white_timer, last_timer_update, bot_thinking_start_time, bot_is_thinking
+    
+    # Thời điểm bắt đầu suy nghĩ
+    bot_thinking_start_time = pygame.time.get_ticks()
+    bot_is_thinking = True
+    
+    # Lưu thời gian trước khi bot bắt đầu suy nghĩ
+    timer_before_thinking = black_timer if board.turn == chess.BLACK else white_timer
+    
+    try:
+        # Gọi hàm get_best_move để bot suy nghĩ
+        move, type = get_best_move(current_board)
+        
+        # Tính toán thời gian đã trôi qua khi bot suy nghĩ
+        thinking_time_elapsed = pygame.time.get_ticks() - bot_thinking_start_time
+        
+        # Cập nhật thời gian cho bot (trừ thời gian suy nghĩ)
+        if board.turn == chess.BLACK:
+            black_timer = timer_before_thinking - thinking_time_elapsed
+            if black_timer < 0:
+                black_timer = 0
+        else:
+            white_timer = timer_before_thinking - thinking_time_elapsed
+            if white_timer < 0:
+                white_timer = 0
+                
+        # Cập nhật thời điểm cuối cùng để tránh bị trừ thêm thời gian
+        last_timer_update = pygame.time.get_ticks()
+        
+        if move:
+            print(type)
+            bot_is_thinking = False
+            return move
+        else:
+            # Nếu không tìm được nước đi từ hàm heuristic, tạo nước đi ngẫu nhiên
+            legal_moves = list(board.legal_moves)
+            if not legal_moves:
+                bot_is_thinking = False
+                return None
+            random_move = random.choice(legal_moves)
+            print("random")
+            bot_is_thinking = False
+            return random_move
+    except Exception as e:
+        print(f"Lỗi khi bot suy nghĩ: {str(e)}")
+        bot_is_thinking = False
+        # Trả về một nước đi ngẫu nhiên nếu có lỗi
         legal_moves = list(board.legal_moves)
         if not legal_moves:
             return None
-        random_move =  random.choice(legal_moves)
-        print("random")
-        return random_move
+        return random.choice(legal_moves)
 
 # --- Hàm vẽ đồng hồ ---
 def draw_timer(surface, time_left, is_top):
