@@ -6,6 +6,7 @@ from Elo_Calculation import Elo_Cal
 import random
 import time
 
+from engine.ComputeMove import get_best_move
 # --- Cài đặt cơ bản ---
 pygame.init()
 
@@ -404,17 +405,20 @@ def get_square_from_mouse(pos):
     rank = 7 - ((y - TOP_MARGIN) // SQUARE_SIZE)
     return chess.square(file, rank)
 
-
 # --- Logic Máy Chơi ---
 def make_random_computer_move(current_board):
     """Thêm code"""
-    time.sleep(1)  # Để máy đi không quá nhanh
-    legal_moves = list(current_board.legal_moves)
-    if legal_moves:
-        move = random.choice(legal_moves)
+    move, type = get_best_move(current_board)
+    if move:
+        print(type)
         return move
-    return False  # Trả về False nếu không có nước đi hợp lệ
-
+    else:
+        legal_moves = list(board.legal_moves)
+        if not legal_moves:
+            return None
+        random_move =  random.choice(legal_moves)
+        print("random")
+        return random_move
 
 # --- Hàm vẽ đồng hồ ---
 def draw_timer(surface, time_left, is_top):
