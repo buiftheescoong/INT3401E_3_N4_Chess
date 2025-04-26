@@ -265,6 +265,8 @@ def draw_menu(surface):
 
 
 def draw_game_info(surface, current_board, current_game_mode):
+    with open('bot_elo.txt', 'r') as file:
+        botRating = file.read().strip()
     """Vẽ khu vực thông tin dưới bàn cờ và trả về Rect nút Back."""
     global game_state, game_mode, board, selected_square, source_square, valid_moves_for_selected_piece, computer_move_pending  # Cần global để có thể thay đổi trạng thái nếu hết cờ ở đây (dù nên tránh)
 
@@ -369,6 +371,13 @@ def get_game_over_message(current_board):
         # Có thể thêm các luật hòa khác nếu cần
         return "Game Over!"  # Trường hợp khác
 
+def get_game_elo(current_board):
+    """Lấy thông báo kết thúc trò chơi dựa vào trạng thái bàn cờ."""
+    if current_board.is_checkmate():
+        if current_board.turn == chess.WHITE:
+            return Elo_Cal(botRating,elo_input,0)
+        else:
+            return Elo_Cal(botRating,elo_input,1)
 
 def draw_game_over(surface, message):
     """Vẽ màn hình Game Over với thông báo và nút Back."""
@@ -815,7 +824,8 @@ def highlight_last_move(surface, move, game_current_state):
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
-
+with open('bot_elo.txt', 'r') as file:
+    botRating = file.read().strip()
 while running:
     current_time = pygame.time.get_ticks()
     mouse_pos = pygame.mouse.get_pos()
@@ -937,6 +947,9 @@ while running:
                                 if board.is_game_over():
                                     game_state = "GAME_OVER"
                                     game_over_message = get_game_over_message(board)
+                                    botRate = get_game_elo(board)
+                                    with open('bot_elo.txt', 'w') as file:
+                                        file.write(str(botRate))
                                     print(f"Game Over: {game_over_message}")
                                 elif game_mode == "PVC":
                                     computer_move_pending = True
@@ -1000,6 +1013,9 @@ while running:
                             if board.is_game_over():
                                 game_state = "GAME_OVER"
                                 game_over_message = get_game_over_message(board)
+                                botRate = get_game_elo(board)
+                                with open('bot_elo.txt', 'w') as file:
+                                    file.write(str(botRate))
                                 print(f"Game Over: {game_over_message}")
                             elif game_mode == "PVC" and board.turn == computer_color:
                                 computer_move_pending = True
@@ -1061,6 +1077,9 @@ while running:
             if board.is_game_over():
                 game_state = "GAME_OVER"
                 game_over_message = get_game_over_message(board)
+                botRate = get_game_elo(board)
+                with open('bot_elo.txt', 'w') as file:
+                    file.write(str(botRate))
                 print(f"Game Over: {game_over_message}")
         computer_move_pending = False
 
