@@ -6,24 +6,86 @@ from Elo_Calculation import Elo_Cal
 import random
 import time
 import os
-
-# Import cả set_engine_path từ module ComputeMove
-
-# Chỉ định đường dẫn tới file C++ engine nếu tồn tại
-
+import chess.polyglot
+from engine.uci_interface import UCIEngineInterface
 
 # --- Cài đặt cơ bản ---
 pygame.init()
 
 # Kích thước màn hình và bàn cờ
 TOP_MARGIN = 50
-WIDTH, HEIGHT = 800, 800  # Tăng chiều rộng để thêm sidebar
+WIDTH, HEIGHT = 800, 800
 BOARD_SIZE = 640  # Kích thước bàn cờ (nên chia hết cho 8)
-SQUARE_SIZE = BOARD_SIZE // 9  # Sửa thành chia đúng cho 8
+SQUARE_SIZE = BOARD_SIZE // 8  # Sửa thành chia đúng cho 8
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
 SIDEBAR_WIDTH = 250  # Chiều rộng của sidebar
 SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
 SIDEBAR_HEIGHT = BOARD_SIZE  # Chiều cao của sidebar (chỉ đến hết bàn cờ)
+
+# --- Thay thế chức năng từ file ComputeMove.py ---
+def get_best_move(board, time_limit=1000, search_depth=4):
+    """
+    Get the best move for the current position using the C++ UCI engine.
+    
+    Args:
+        board: A chess.Board object representing the current position
+        time_limit: Time in milliseconds to spend thinking (default: 1000)
+        search_depth: Search depth limit (default: 4)
+        
+    Returns:
+        A tuple of (move, type) where move is a chess.Move object and type is 
+        either "opening", "UCI", or "random"
+    """
+    print("\n\nThinking...")
+    start = time.time()
+
+    # First try using opening book if available
+    try:
+        with chess.polyglot.open_reader("data/final-book.bin") as reader:
+            entries = list(reader.find_all(board))
+            if entries:
+                op_move = entries[0]
+                best_move = op_move.move
+                print("Using opening book move")
+                return best_move, "opening"
+    except Exception as e:
+        print(f"Opening book error: {str(e)}")
+    
+    # If opening book fails, use the C++ UCI engine
+    try:
+        # Determine the path to the C++ engine
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        engine_path = os.path.join(base_dir, "engine", "cpp", "uci_engine.exe")
+        
+        print(f"Using C++ engine at: {engine_path}")
+        with UCIEngineInterface(engine_path=engine_path, depth=search_depth, movetime=time_limit) as engine:
+            move, info = engine.get_best_move(board)
+            
+            if move and move in board.legal_moves:
+                print(f"UCI engine move: {move}")
+                print(f"UCI info: {info}")
+                end = time.time()
+                print(f"\nRuntime: {round(end - start, 2)}s")
+                return move, "UCI"
+            else:
+                if move:
+                    print(f"UCI engine returned invalid move: {move} for position: {board.fen()}")
+                else:
+                    print("UCI engine did not return any move")
+                raise ValueError("Invalid move from UCI engine")
+    except Exception as e:
+        print(f"UCI engine error: {str(e)}")
+    
+    # If UCI engine fails, return a random move
+    legal_moves = list(board.legal_moves)
+    if legal_moves:
+        best_move = random.choice(legal_moves)
+        print("Using random move as fallback.")
+        end = time.time()
+        print(f"\nRuntime: {round(end - start, 2)}s")
+        return best_move, "random"
+    
+    return None, "no moves"
 
 # Màu sắc
 WHITE = (255, 255, 255)
