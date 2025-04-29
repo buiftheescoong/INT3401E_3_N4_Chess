@@ -7,6 +7,21 @@ import numpy as np
 from .heuristic import evaluate
 from .uci_interface import UCIEngineInterface
 
+# Thêm biến để lưu đường dẫn tùy chỉnh
+custom_engine_path = None
+
+# Hàm mới để đặt đường dẫn cho engine
+def set_engine_path(path):
+    """
+    Đặt đường dẫn tùy chỉnh đến file thực thi C++
+    
+    Args:
+        path: Đường dẫn tới file thực thi C++ (ví dụ: "F:/path/to/uci_engine.exe")
+    """
+    global custom_engine_path
+    custom_engine_path = path
+    print(f"Set custom engine path: {path}")
+
 MATE_SCORE     = 1000000000
 MATE_THRESHOLD =  999000000
 
@@ -79,14 +94,29 @@ def get_best_move(board: chess.Board, time_limit=1000, search_depth=4):
 
     # If opening book fails, use the UCI engine
     try:
-        with UCIEngineInterface(depth=search_depth, movetime=time_limit) as engine:
+        # Sử dụng đường dẫn tùy chỉnh nếu có
+        engine_kwargs = {"depth": search_depth, "movetime": time_limit}
+        if custom_engine_path:
+            engine_kwargs["engine_path"] = custom_engine_path
+            
+        with UCIEngineInterface(**engine_kwargs) as engine:
             move, info = engine.get_best_move(board)
-            if move:
+            
+            # Thêm kiểm tra tính hợp lệ của nước đi
+            if move and move in board.legal_moves:
                 print(f"UCI engine move: {move}")
                 print(f"UCI info: {info}")
                 end = time.time()
                 print("\nRuntime:", round(end - start, 2), "s")
                 return move, "UCI"
+            else:
+                # Nếu nước đi không hợp lệ, ghi log và chuyển sang thuật toán heuristic
+                if move:
+                    print(f"UCI engine returned invalid move: {move} for position: {board.fen()}")
+                    print(f"Legal moves: {[m.uci() for m in board.legal_moves]}")
+                else:
+                    print("UCI engine did not return any move")
+                raise ValueError("Invalid move from UCI engine")
     except Exception as e:
         print(f"UCI engine error: {str(e)}")
         

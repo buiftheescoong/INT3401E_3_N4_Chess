@@ -5,16 +5,27 @@ import sys
 from Elo_Calculation import Elo_Cal
 import random
 import time
+import os
 
-from engine.ComputeMove import get_best_move
+# Import cả set_engine_path từ module ComputeMove
+from engine.ComputeMove import get_best_move, set_engine_path
+
+# Chỉ định đường dẫn tới file C++ engine nếu tồn tại
+engine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "engine", "cpp", "uci_engine.exe")
+if os.path.exists(engine_path):
+    set_engine_path(engine_path)
+    print(f"Đã tìm thấy engine C++ tại: {engine_path}")
+else:
+    print("Không tìm thấy engine C++, sẽ sử dụng thuật toán Python")
+
 # --- Cài đặt cơ bản ---
 pygame.init()
 
 # Kích thước màn hình và bàn cờ
 TOP_MARGIN = 50
-WIDTH, HEIGHT = 900, 800  # Tăng chiều rộng để thêm sidebar
+WIDTH, HEIGHT = 800, 800  # Tăng chiều rộng để thêm sidebar
 BOARD_SIZE = 640  # Kích thước bàn cờ (nên chia hết cho 8)
-SQUARE_SIZE = BOARD_SIZE // 9
+SQUARE_SIZE = BOARD_SIZE // 9  # Sửa thành chia đúng cho 8
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
 SIDEBAR_WIDTH = 250  # Chiều rộng của sidebar
 SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
@@ -1054,6 +1065,7 @@ while running:
                                 computer_move_pending = True
                                 last_computer_move_time = current_time
                             
+
                             promotion_selected = True
                             break
                 
