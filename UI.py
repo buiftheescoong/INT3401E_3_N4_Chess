@@ -8,15 +8,9 @@ import time
 import os
 
 # Import cả set_engine_path từ module ComputeMove
-from engine.ComputeMove import get_best_move, set_engine_path
 
 # Chỉ định đường dẫn tới file C++ engine nếu tồn tại
-engine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "engine", "cpp", "uci_engine.exe")
-if os.path.exists(engine_path):
-    set_engine_path(engine_path)
-    print(f"Đã tìm thấy engine C++ tại: {engine_path}")
-else:
-    print("Không tìm thấy engine C++, sẽ sử dụng thuật toán Python")
+
 
 # --- Cài đặt cơ bản ---
 pygame.init()
