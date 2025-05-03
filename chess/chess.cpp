@@ -10,9 +10,6 @@ and XBoard/UCI engine communication.
 */
 
 #include "chess.h"
-
-
-
 #include <iostream>
 
 namespace chess
@@ -145,7 +142,10 @@ namespace chess
 
     int lsb(Bitboard bb)
     {
-        return std::numeric_limits<Bitboard>::digits - std::countl_zero(bb & -bb) - 1;
+        Bitboard x = bb & -bb;
+        int count = 0;
+        while (x >>= 1) ++count;
+        return count;
     }
 
     std::vector<Square> scan_forward(Bitboard bb)
@@ -154,7 +154,7 @@ namespace chess
         while (bb)
         {
             Bitboard r = bb & -bb;
-            iter.push_back(std::numeric_limits<Bitboard>::digits - std::countl_zero(r) - 1);
+            iter.push_back(63 - __builtin_clzll(r));
             bb ^= r;
         }
         return iter;
@@ -162,7 +162,14 @@ namespace chess
 
     int msb(Bitboard bb)
     {
-        return std::numeric_limits<Bitboard>::digits - std::countl_zero(bb) - 1;
+        if (bb == 0)
+            return -1; // Return -1 if the bitboard is empty
+        int msb_index = 0;
+        while (bb >>= 1)
+        {
+            ++msb_index;
+        }
+        return msb_index;
     }
 
     std::vector<Square> scan_reversed(Bitboard bb)
@@ -170,7 +177,7 @@ namespace chess
         std::vector<Square> iter;
         while (bb)
         {
-            Square r = std::numeric_limits<Bitboard>::digits - std::countl_zero(bb) - 1;
+            Square r = 63 - __builtin_clzll(bb); // Replace with GCC/Clang built-in function for portability
             iter.push_back(r);
             bb ^= BB_SQUARES[r];
         }

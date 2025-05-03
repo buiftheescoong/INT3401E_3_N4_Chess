@@ -1,7 +1,7 @@
 #include <array>
 #include <array>
 #include <map>
-#include "../../chess/chess.cpp"
+#include "../../chess/chess.h"
 
 
 using namespace std;

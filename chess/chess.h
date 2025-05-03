@@ -8,7 +8,8 @@ The original source code can be found here: https://github.com/niklasf/python-ch
 A chess library with move generation and validation,
 and XBoard/UCI engine communication.
 */
-
+#ifndef CHESS_H
+#define CHESS_H
 #include <string>
 #include <unordered_map>
 #include <stdexcept>
@@ -188,7 +189,7 @@ namespace chess
 
     const Square SQUARES_180[] = {square_mirror(0), square_mirror(1), square_mirror(2), square_mirror(3), square_mirror(4), square_mirror(5), square_mirror(6), square_mirror(7), square_mirror(8), square_mirror(9), square_mirror(10), square_mirror(11), square_mirror(12), square_mirror(13), square_mirror(14), square_mirror(15), square_mirror(16), square_mirror(17), square_mirror(18), square_mirror(19), square_mirror(20), square_mirror(21), square_mirror(22), square_mirror(23), square_mirror(24), square_mirror(25), square_mirror(26), square_mirror(27), square_mirror(28), square_mirror(29), square_mirror(30), square_mirror(31), square_mirror(32), square_mirror(33), square_mirror(34), square_mirror(35), square_mirror(36), square_mirror(37), square_mirror(38), square_mirror(39), square_mirror(40), square_mirror(41), square_mirror(42), square_mirror(43), square_mirror(44), square_mirror(45), square_mirror(46), square_mirror(47), square_mirror(48), square_mirror(49), square_mirror(50), square_mirror(51), square_mirror(52), square_mirror(53), square_mirror(54), square_mirror(55), square_mirror(56), square_mirror(57), square_mirror(58), square_mirror(59), square_mirror(60), square_mirror(61), square_mirror(62), square_mirror(63)};
 
-    typedef unsigned long Bitboard;
+    typedef unsigned long long Bitboard;
     const Bitboard BB_EMPTY = 0;
     const Bitboard BB_ALL = 0xffff'ffff'ffff'ffff;
 
@@ -266,17 +267,28 @@ namespace chess
     const Bitboard BB_LIGHT_SQUARES = 0x55aa'55aa'55aa'55aa;
     const Bitboard BB_DARK_SQUARES = 0xaa55'aa55'aa55'aa55;
 
-    const Bitboard BB_FILES[] = {
-        0x0101'0101'0101'0101UL << 0,
-        0x0101'0101'0101'0101UL << 1,
-        0x0101'0101'0101'0101UL << 2,
-        0x0101'0101'0101'0101UL << 3,
-        0x0101'0101'0101'0101UL << 4,
-        0x0101'0101'0101'0101UL << 5,
-        0x0101'0101'0101'0101UL << 6,
-        0x0101'0101'0101'0101UL << 7,
-    },
-                   BB_FILE_A = 0x0101'0101'0101'0101UL << 0, BB_FILE_B = 0x0101'0101'0101'0101UL << 1, BB_FILE_C = 0x0101'0101'0101'0101UL << 2, BB_FILE_D = 0x0101'0101'0101'0101UL << 3, BB_FILE_E = 0x0101'0101'0101'0101UL << 4, BB_FILE_F = 0x0101'0101'0101'0101UL << 5, BB_FILE_G = 0x0101'0101'0101'0101UL << 6, BB_FILE_H = 0x0101'0101'0101'0101UL << 7;
+
+
+const Bitboard BB_FILES[] = {
+    0x0101010101010101UL << 0,
+    0x0101010101010101UL << 1,
+    0x0101010101010101UL << 2,
+    0x0101010101010101UL << 3,
+    0x0101010101010101UL << 4,
+    0x0101010101010101UL << 5,
+    0x0101010101010101UL << 6,
+    0x0101010101010101UL << 7,
+};
+
+const Bitboard BB_FILE_A = 0x0101010101010101UL << 0;
+const Bitboard BB_FILE_B = 0x0101010101010101UL << 1;
+const Bitboard BB_FILE_C = 0x0101010101010101UL << 2;
+const Bitboard BB_FILE_D = 0x0101010101010101UL << 3;
+const Bitboard BB_FILE_E = 0x0101010101010101UL << 4;
+const Bitboard BB_FILE_F = 0x0101010101010101UL << 5;
+const Bitboard BB_FILE_G = 0x0101010101010101UL << 6;
+const Bitboard BB_FILE_H = 0x0101010101010101UL << 7;
+
 
     const Bitboard BB_RANKS[] = {
         0xffUL << (8 * 0),
@@ -1162,3 +1174,4 @@ struct std::hash<chess::Piece>
         return piece.piece_type + (piece.color ? -1 : 5);
     }
 };
+#endif

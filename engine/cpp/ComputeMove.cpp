@@ -1,4 +1,3 @@
-#include "../../chess/chess.cpp"
 #include <climits>
 #include <vector>
 #include <algorithm>
@@ -8,14 +7,10 @@
 #include <fstream> 
 #include "heuristic.cpp"
 
-
-
-
-const int MATE_SCORE     = 1000000000;
 const int MATE_THRESHOLD =  999000000;
 
 
-chess::Move killer_move[20][2];         
+//chess::Move killer_move[20][2];         
 int history_move[7][2][64] = {};        
 
 // MVV-LVA TABLE (Most Valuable Victim - Least Valuable Aggressor)
@@ -33,30 +28,30 @@ const int MVV_LVA_OFFSET = 1000000;
 
 int move_ordering(chess::Board board, chess::Move move) {
     int move_score = 0;
-    // chess::Square to_sq   = move.to_square;
-    // chess::Square from_sq = move.from_square;
+     chess::Square to_sq   = move.to_square;
+     chess::Square from_sq = move.from_square;
 
-    // if (move.promotion != std::nullopt) {
-    //     return (board.turn == chess::WHITE)
-    //         ? std::numeric_limits<int>::max()
-    //         : std::numeric_limits<int>::min();
-    // }
+     if (move.promotion != std::nullopt) {
+         return (board.turn == chess::WHITE)
+             ? std::numeric_limits<int>::max()
+             : std::numeric_limits<int>::min();
+     }
 
-    // // 2. Capture move
-    // if (board.is_capture(move)) {
-    //     move_score += MVV_LVA_OFFSET;
+    //  // 2. Capture move
+    //  if (board.is_capture(move)) {
+    //      move_score += MVV_LVA_OFFSET;
 
-    //     int victim;
-    //     if (board.is_en_passant(move)) {
-    //         victim = PAWN;  // tốt bị ăn en passant
-    //     } else {
-    //         std::optional<chess::PieceType> victim = board.piece_type_at(to_sq);
-    //     }
+    //      int victim;
+    //      if (board.is_en_passant(move)) {
+    //          victim = PAWN;  // tốt bị ăn en passant
+    //      } else {
+    //          std::optional<chess::PieceType> victim = board.piece_type_at(to_sq);
+    //      }
 
-    //     std::optional<chess::PieceType> attacker = board.piece_type_at(from_sq);
+    //      std::optional<chess::PieceType> attacker = board.piece_type_at(from_sq);
 
-    //     move_score += MVV_LVA[victim][attacker];
-    // }
+    //      move_score += MVV_LVA[victim][attacker];
+    //  }
 
     return move_score;
 }
@@ -176,38 +171,40 @@ chess::Move next_move(int depth, chess::Board board) {
     return minimax_root(depth, board);
 }
 
-// chess::Move get_best_move(chess::Board& board, int time_limit = 10) {
-//     std::cout << "\n\nThinking..." << std::endl;
-//     std::time_t start = std::time(nullptr);
+chess::Move get_best_move(chess::Board& board, int time_limit = 200) {
+    std::cout << "\n\nThinking..." << std::endl;
+    std::time_t start = std::time(nullptr);
 
-//     chess::Move best_move = chess::Move(0,0);
-//     try {
-//         std::ifstream file("data/final-book.bin", std::ios::binary);
-//         if (file.is_open()) {
-//             std::vector<chess::Move> root_moves = polyglot_reader.find_all(board);
-//             if (!root_moves.empty()) {
-//                 best_move = root_moves[0];  // Chọn move đầu tiên từ polyglot book
-//                 return best_move;
-//             }
-//         }
-//     } catch (const std::exception& e) {
-//         std::cerr << "Polyglot Error: " << e.what() << std::endl;
-//     }
+    chess::Move best_move = chess::Move(0,0);
+    // try {
+    //     std::ifstream file("data/final-book.bin", std::ios::binary);
+    //     if (file.is_open()) {
+    //         std::vector<chess::Move> root_moves = polyglot_reader.find_all(board);
+    //         if (!root_moves.empty()) {
+    //             best_move = root_moves[0];  // Chọn move đầu tiên từ polyglot book
+    //             return best_move;
+    //         }
+    //     }
+    // } catch (const std::exception& e) {
+    //     std::cerr << "Polyglot Error: " << e.what() << std::endl;
+    // }
 
-//     int max_depth = 4;
-//     int depth = 1;
-//     while (std::difftime(std::time(nullptr), start) < time_limit && depth < max_depth) {
-//         best_move = next_move(depth, board);
-//         std::cout << "Using heuristic for depth " << depth << std::endl;
+    int max_depth = 15;
+    int depth = 1;
+    while (std::difftime(std::time(nullptr), start) < time_limit && depth < max_depth) {
+        best_move = next_move(depth, board);
+        std::cout << "Using heuristic for depth " << depth << std::endl;
         
-//         if (std::difftime(std::time(nullptr), start) >= time_limit) {
-//             break;
-//         }
-//         depth++;
-//     }
+        if (std::difftime(std::time(nullptr), start) >= time_limit) {
+            break;
+        }
+        depth++;
+    }
 
-//     std::time_t end = std::time(nullptr);
-//     std::cout << "\nRuntime: " << std::difftime(end, start) << "s" << std::endl;
+    std::time_t end = std::time(nullptr);
+    std::cout << "\nRuntime: " << std::difftime(end, start) << "s" << std::endl;
 
-//     return best_move;
-// }
+    return best_move;
+}
+
+
