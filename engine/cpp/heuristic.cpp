@@ -351,6 +351,7 @@ double game_phase(chess::Board board) {
     std::map<Piece, int> phase_weights = {
         {QUEEN, 4}, {ROOK, 2}, {BISHOP, 1}, {KNIGHT, 1}
     };
+<<<<<<< HEAD
 
     std::map<Piece, int> max_counts = {
         {QUEEN, 1}, {ROOK, 2}, {BISHOP, 2}, {KNIGHT, 2}
@@ -387,6 +388,44 @@ double eval_pst(chess::Board board) {
     return score / (5255 + 435);
 }
 
+=======
+    
+    std::map<Piece, int> max_counts = {
+        {QUEEN, 1}, {ROOK, 2}, {BISHOP, 2}, {KNIGHT, 2}
+    };
+
+    int max_phase = 24;
+    int phase = 0;
+    for (const auto& entry : phase_weights) {
+        Piece piece = entry.first;
+        phase += board.pieces(piece, WHITE).size() * phase_weights[piece];
+        phase += board.pieces(piece, BLACK).size() * phase_weights[piece];
+        
+    }
+
+    return std::min(1.0, static_cast<double>(phase) / max_phase);
+}
+
+double eval_pst(chess::Board board) {
+    double mg = game_phase(board);  
+    double eg = 1.0 - mg;
+    double score = 0;
+    for (int sq = 0; sq < 64; ++sq) {
+        if (!board.piece_at(sq)) continue;
+        auto opt_piece = board.piece_at(sq);
+        if (!opt_piece) continue;
+        chess::Piece piece = *opt_piece;
+        bool is_white = piece.color;
+        int idx = sq;
+        const auto& pst_mg = is_white ? wpiece_values.at(static_cast<Piece>(piece.piece_type)).first: bpiece_values.at(static_cast<Piece>(piece.piece_type)).first;
+        const auto& pst_eg = is_white ? wpiece_values.at(static_cast<Piece>(piece.piece_type)).second : bpiece_values.at(static_cast<Piece>(piece.piece_type)).second;
+        double value = (pst_mg[idx] * mg + pst_eg[idx] * eg);
+        score += is_white ? value : -value;
+    }
+    return score / (5255 + 435);
+}
+
+>>>>>>> origin/fix_convert
 double evaluate(chess::Board board) {
     if (board.is_checkmate()) {
         return board.turn == WHITE ? -MATE_SCORE : MATE_SCORE;
