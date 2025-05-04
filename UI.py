@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-import pygame
-import chess
-import sys
-from Elo_Calculation import Elo_Cal
-import random
-import time
 import os
+import random
+import sys
+import time
+
 import chess.polyglot
+import pygame
+
+import chess
 from engine.uci_interface import UCIEngineInterface
 
 # --- Cài đặt cơ bản ---
@@ -16,14 +17,14 @@ pygame.init()
 TOP_MARGIN = 50
 WIDTH, HEIGHT = 800, 800
 BOARD_SIZE = 640  # Kích thước bàn cờ (nên chia hết cho 8)
-SQUARE_SIZE = BOARD_SIZE // 8  # Sửa thành chia đúng cho 8
+SQUARE_SIZE = BOARD_SIZE // 9  # Sửa thành chia đúng cho 8
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
-SIDEBAR_WIDTH = 250  # Chiều rộng của sidebar
+SIDEBAR_WIDTH = 224  # Chiều rộng của sidebar
 SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
 SIDEBAR_HEIGHT = BOARD_SIZE  # Chiều cao của sidebar (chỉ đến hết bàn cờ)
 
 # --- Thay thế chức năng từ file ComputeMove.py ---
-def get_best_move(board, time_limit=1000, search_depth=4):
+def get_best_move(board, time_limit=10000, search_depth=10):
     """
     Get the best move for the current position using the C++ UCI engine.
     
@@ -50,17 +51,17 @@ def get_best_move(board, time_limit=1000, search_depth=4):
                 return best_move, "opening"
     except Exception as e:
         print(f"Opening book error: {str(e)}")
-    
+
     # If opening book fails, use the C++ UCI engine
     try:
         # Determine the path to the C++ engine
         base_dir = os.path.dirname(os.path.abspath(__file__))
         engine_path = os.path.join(base_dir, "engine", "cpp", "uci_engine.exe")
-        
+
         print(f"Using C++ engine at: {engine_path}")
         with UCIEngineInterface(engine_path=engine_path, depth=search_depth, movetime=time_limit) as engine:
             move, info = engine.get_best_move(board)
-            
+
             if move and move in board.legal_moves:
                 print(f"UCI engine move: {move}")
                 print(f"UCI info: {info}")
@@ -75,7 +76,7 @@ def get_best_move(board, time_limit=1000, search_depth=4):
                 raise ValueError("Invalid move from UCI engine")
     except Exception as e:
         print(f"UCI engine error: {str(e)}")
-    
+
     # If UCI engine fails, return a random move
     legal_moves = list(board.legal_moves)
     if legal_moves:

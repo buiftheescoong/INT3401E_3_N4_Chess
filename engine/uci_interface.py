@@ -7,7 +7,7 @@ import platform
 import time
 
 class UCIEngineInterface:
-    def __init__(self, engine_path=None, depth=4, movetime=1000):
+    def __init__(self, engine_path=None, depth=10, movetime=1000):
         """
         Initialize a UCI engine interface.
         
@@ -98,18 +98,6 @@ class UCIEngineInterface:
             return False
             
     def get_best_move(self, board, depth=None, movetime=None):
-        """
-        Get the best move for the current position.
-        
-        Args:
-            board: A chess.Board object representing the current position
-            depth: Optional depth override (if None, use the default)
-            movetime: Optional movetime override in milliseconds (if None, use the default)
-            
-        Returns:
-            A tuple of (move, info) where move is a chess.Move object and info contains
-            additional information from the engine.
-        """
         if not self.engine:
             if not self.open():
                 return None, {"error": "Failed to open engine"}
