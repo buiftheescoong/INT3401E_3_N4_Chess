@@ -10,8 +10,8 @@
 const int MATE_THRESHOLD =  999000000;
 
 
-//chess::Move killer_move[20][2];         
-int history_move[7][2][64] = {};        
+//chess::Move killer_move[20][2];
+int history_move[7][2][64] = {};
 
 // MVV-LVA TABLE (Most Valuable Victim - Least Valuable Aggressor)
 int MVV_LVA[7][7] = {
@@ -108,7 +108,7 @@ double minimax(int depth,
 
             alpha = std::max(alpha, best_value);
             if (beta <= alpha) {
-                break;  
+                break;
             }
         }
         return best_value;
@@ -130,7 +130,7 @@ double minimax(int depth,
 
             beta = std::min(beta, best_value);
             if (beta <= alpha) {
-                break;  
+                break;
             }
         }
         return best_value;
@@ -138,7 +138,7 @@ double minimax(int depth,
 }
 
 chess::Move minimax_root(int depth, chess::Board board) {
-    bool maximize = board.turn == chess::WHITE;  
+    bool maximize = board.turn == chess::WHITE;
     double best_move = maximize ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
     chess::Move best_move_found = chess::Move(0, 0);
 
@@ -194,7 +194,7 @@ chess::Move get_best_move(chess::Board& board, int time_limit = 200) {
     while (std::difftime(std::time(nullptr), start) < time_limit && depth < max_depth) {
         best_move = next_move(depth, board);
         std::cout << "Using heuristic for depth " << depth << std::endl;
-        
+
         if (std::difftime(std::time(nullptr), start) >= time_limit) {
             break;
         }
@@ -206,5 +206,3 @@ chess::Move get_best_move(chess::Board& board, int time_limit = 200) {
 
     return best_move;
 }
-
-

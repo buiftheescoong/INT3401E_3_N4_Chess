@@ -32,11 +32,7 @@ and XBoard/UCI engine communication.
 namespace chess
 {
 
-    std::string __author__ = "Patrick Johnson";
 
-    std::string __email__ = "pjpuzzler@gmail.com";
-
-    std::string __version__ = "1.0.0";
 
     typedef std::string _EnPassantSpec;
 
@@ -312,7 +308,7 @@ const Bitboard BB_FILE_H = 0x0101010101010101ULL << 7;
 
     std::vector<Square> scan_reversed(Bitboard);
 
-    std::function<int(Bitboard)> popcount = [](Bitboard bb) -> int
+    inline std::function<int(Bitboard)> popcount = [](Bitboard bb) -> int
     { return std::bitset<64>(bb).count(); };
 
     Bitboard flip_vertical(Bitboard);
