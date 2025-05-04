@@ -2,6 +2,7 @@
 #include <array>
 #include <map>
 #include "../../chess/chess.h"
+#include <iostream>
 
 
 using namespace std;
@@ -281,7 +282,12 @@ const std::array<int, 64> WKING_EG = {
 
 
 enum Piece {
-    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
+    PAWN = 1,
+    KNIGHT = 2,
+    BISHOP = 3,
+    ROOK = 4,
+    QUEEN = 5,
+    KING = 6
 };
 
 enum Color { WHITE, BLACK };
@@ -341,37 +347,47 @@ int W_TROPISM         = 5;
 int W_SPACE           = 3;
 int W_THREAT          = 10;
 
-
-
-
-// Hàm tính toán phase của ván cờ
-// double game_phase(chess::Board board) {
-//     std::map<Piece, int> phase_weights = {
-//         {QUEEN, 4}, {ROOK, 2}, {BISHOP, 1}, {KNIGHT, 1}
-//     };
+double game_phase(chess::Board board) {
+    std::map<Piece, int> phase_weights = {
+        {QUEEN, 4}, {ROOK, 2}, {BISHOP, 1}, {KNIGHT, 1}
+    };
     
-//     std::map<Piece, int> max_counts = {
-//         {QUEEN, 1}, {ROOK, 2}, {BISHOP, 2}, {KNIGHT, 2}
-//     };
+    std::map<Piece, int> max_counts = {
+        {QUEEN, 1}, {ROOK, 2}, {BISHOP, 2}, {KNIGHT, 2}
+    };
 
-//     int max_phase = 0;
-//     for (const auto& entry : phase_weights) {
-//         Piece piece = entry.first;
-//         max_phase += phase_weights[piece] * max_counts[piece] * 2;
-//     }
-
-//     int phase = 0;
-//     for (const auto& entry : phase_weights) {
-//         Piece piece = entry.first;
-//         phase += board.pieces(piece, WHITE) * phase_weights[piece];
-//         phase += board.pieces(piece, BLACK) * phase_weights[piece];
+    int max_phase = 24;
+    int phase = 0;
+    for (const auto& entry : phase_weights) {
+        Piece piece = entry.first;
+        phase += board.pieces(piece, WHITE).size() * phase_weights[piece];
+        phase += board.pieces(piece, BLACK).size() * phase_weights[piece];
         
-//     }
+    }
 
-//     return std::min(1.0, static_cast<double>(phase) / max_phase);
-// }
+    return std::min(1.0, static_cast<double>(phase) / max_phase);
+}
 
-int evaluate(chess::Board board) {
+double eval_pst(chess::Board board) {
+    double mg = game_phase(board);  
+    double eg = 1.0 - mg;
+    double score = 0;
+    for (int sq = 0; sq < 64; ++sq) {
+        if (!board.piece_at(sq)) continue;
+        auto opt_piece = board.piece_at(sq);
+        if (!opt_piece) continue;
+        chess::Piece piece = *opt_piece;
+        bool is_white = piece.color;
+        int idx = sq;
+        const auto& pst_mg = is_white ? wpiece_values.at(static_cast<Piece>(piece.piece_type)).first: bpiece_values.at(static_cast<Piece>(piece.piece_type)).first;
+        const auto& pst_eg = is_white ? wpiece_values.at(static_cast<Piece>(piece.piece_type)).second : bpiece_values.at(static_cast<Piece>(piece.piece_type)).second;
+        double value = (pst_mg[idx] * mg + pst_eg[idx] * eg);
+        score += is_white ? value : -value;
+    }
+    return score / (5255 + 435);
+}
+
+double evaluate(chess::Board board) {
     if (board.is_checkmate()) {
         return board.turn == WHITE ? -MATE_SCORE : MATE_SCORE;
     }
@@ -382,9 +398,8 @@ int evaluate(chess::Board board) {
         return 0;
     }
 
-    int total = 0;
-
-    // total += eval_pst(board);
+    double total = 0;
+    total += eval_pst(board);
     // total += W_MOBILITY * eval_mobility(board);
     // total += W_KING_SAFETY * eval_king_safety(board);
     // total += eval_pawn_structure(board);
