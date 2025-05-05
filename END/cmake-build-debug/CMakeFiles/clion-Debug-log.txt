@@ -1,0 +1,8 @@
+"C:\Program Files\JetBrains\CLion 2025.1\bin\cmake\win\x64\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_MAKE_PROGRAM=C:/Program Files/JetBrains/CLion 2025.1/bin/ninja/win/x64/ninja.exe" -G Ninja -Dpybind11_DIR=C:/Users/nvtqx/AppData/Local/Programs/Python/Python313/Lib/site-packages/pybind11/share/cmake/pybind11 -DPython_ROOT_DIR=C:/Users/nvtqx/AppData/Local/Programs/Python/Python313/ -S E:\AI\INT3401E_3_N4_Chess\END -B E:\AI\INT3401E_3_N4_Chess\END\cmake-build-debug
+-- pybind11 v3.0.0 dev1
+Using compatibility mode for Python, set PYBIND11_FINDPYTHON to NEW/OLD to silence this message
+-- pybind11::lto disabled (problems with undefined symbols for MinGW for now)
+-- pybind11::thin_lto disabled (problems with undefined symbols for MinGW for now)
+-- Configuring done (1.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: E:/AI/INT3401E_3_N4_Chess/END/cmake-build-debug
