@@ -194,7 +194,7 @@ chess::Move minimax_root(int depth, chess::Board& board) {
     return best_move;
 }
 
-chess::Move get_best_move(chess::Board& board, int time_limit = 20) {
+chess::Move get_best_move(chess::Board& board, int time_limit = 10) {
     std::cout << "\n\nThinking..." << std::endl;
     std::time_t start = std::time(nullptr);
 
