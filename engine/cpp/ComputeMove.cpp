@@ -9,7 +9,8 @@
 
 
 
-// std::vector<std::vector<chess::Move>> killer_move(20, std::vector<chess::Move>(2)); // depth x 2
+std::vector<std::vector<chess::Move>> killer_move(64, std::vector<chess::Move>(2, chess::Move(0, 0)));
+
 int history_move[7][2][64] = {}; // piece x color x square
 
 
@@ -47,22 +48,62 @@ int move_ordering(chess::Board board, chess::Move move, int depth) {
         attacker = Piece((*board.piece_at(from_square)).piece_type);
         move_score += MVV_LVA[victim][attacker];
     } else {
-        // if (move == killer_move[depth][0])
-        //     move_score = MVV_LVA_OFFSET - 100;
-        // else if (move == killer_move[depth][1])
-        //     move_score = MVV_LVA_OFFSET - 200;
-        // else {
-            if (auto optional_from_piece = board.piece_at(from_square)) {
-                chess::Piece from_piece = *optional_from_piece;
-                int piece = from_piece.piece_type;
-                int color = from_piece.color;
-                move_score += history_move[piece][color][to_square];
+        if (depth < 64) {
+            if (move == killer_move[depth][0])
+                move_score = MVV_LVA_OFFSET - 100;
+            else if (move == killer_move[depth][1])
+                move_score = MVV_LVA_OFFSET - 200;
+            else {
+                if (auto optional_from_piece = board.piece_at(from_square)) {
+                    chess::Piece from_piece = *optional_from_piece;
+                    int piece = from_piece.piece_type;
+                    int color = from_piece.color;
+                    move_score += history_move[piece][color][to_square];
+                }
             }
-        //}
+        }
     }
 
     return move_score;
 }
+
+double quiescence_search(chess::Board& board, double alpha, double beta, bool is_maximising_player) {
+    double stand_pat = evaluate(board);
+    if (is_maximising_player) {
+        if (stand_pat >= beta) return beta;
+        if (stand_pat > alpha) alpha = stand_pat;
+    } else {
+        if (stand_pat <= alpha) return alpha;
+        if (stand_pat < beta) beta = stand_pat;
+    }
+
+    std::vector<chess::Move> captures;
+    for (auto& move : board.legal_moves()) {
+        if (board.is_capture(move))
+            captures.push_back(move);
+    }
+
+    std::sort(captures.begin(), captures.end(), [&](const chess::Move& a, const chess::Move& b) {
+        return move_ordering(board, a, 0) > move_ordering(board, b, 0);
+    });
+
+    for (auto& move : captures) {
+        board.push(move);
+        double score = quiescence_search(board, alpha, beta, !is_maximising_player);
+        board.pop();
+
+        if (is_maximising_player) {
+            if (score > alpha) alpha = score;
+        } else {
+            if (score < beta) beta = score;
+        }
+
+        if (beta <= alpha) break;
+    }
+
+    return is_maximising_player ? alpha : beta;
+}
+
 
 
 std::vector<chess::Move> get_ordered_moves(chess::Board& board, int depth) {
@@ -78,7 +119,16 @@ std::vector<chess::Move> get_ordered_moves(chess::Board& board, int depth) {
 double minimax(int depth, chess::Board& board, double alpha, double beta, bool is_maximising_player) {
     if (board.is_checkmate()) return is_maximising_player ? -MATE_SCORE : MATE_SCORE;
     if (board.is_game_over()) return 0.0;
-    if (depth == 0) return evaluate(board); 
+    if (depth == 0) return quiescence_search(board, alpha, beta, is_maximising_player);
+
+    // === Null Move Pruning ===
+    if (depth >= 3 && !board.is_check() && is_maximising_player) {
+        board.push(chess::Move::null());
+        double score = -minimax(depth - 1 - 2, board, -beta, -beta + 1, false);
+        board.pop();
+
+        if (score >= beta) return beta;  // Fail-hard beta cutoff
+    }
 
     double best_value = is_maximising_player ? -INFINITY : INFINITY;
     std::vector<chess::Move> moves = get_ordered_moves(board, depth);
@@ -97,7 +147,15 @@ double minimax(int depth, chess::Board& board, double alpha, double beta, bool i
         }
 
         if (beta <= alpha) {
-            // Update history heuristic
+            // Update killer move if this move caused beta cutoff and is not a capture
+            if (!board.is_capture(move) && depth < 64) {
+                if (killer_move[depth][0] != move) {
+                    killer_move[depth][1] = killer_move[depth][0];
+                    killer_move[depth][0] = move;
+                }
+            }
+        
+            // Also update history heuristic
             if (!board.is_capture(move)) {
                 if (auto optional_from_piece = board.piece_at(move.from_square)) {
                     chess::Piece from_piece = *optional_from_piece;
@@ -106,12 +164,15 @@ double minimax(int depth, chess::Board& board, double alpha, double beta, bool i
                     history_move[piece][color][move.to_square] += depth * depth;
                 }
             }
+        
             break;
         }
         
     }
+
     return best_value;
 }
+
 
 chess::Move minimax_root(int depth, chess::Board& board) {
     bool maximize = board.turn == chess::WHITE;
@@ -133,7 +194,7 @@ chess::Move minimax_root(int depth, chess::Board& board) {
     return best_move;
 }
 
-chess::Move get_best_move(chess::Board& board, int time_limit = 100) {
+chess::Move get_best_move(chess::Board& board, int time_limit = 20) {
     std::cout << "\n\nThinking..." << std::endl;
     std::time_t start = std::time(nullptr);
 
