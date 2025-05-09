@@ -1,7 +1,9 @@
 #include <array>
 #include <array>
 #include <map>
-#include "chess/chess.h"
+#include "../../chess/chess.h"
+#include <iostream>
+#include <cstdint>
 
 
 using namespace std;
@@ -281,7 +283,12 @@ const std::array<int, 64> WKING_EG = {
 
 
 enum Piece {
-    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
+    PAWN = 1,
+    KNIGHT = 2,
+    BISHOP = 3,
+    ROOK = 4,
+    QUEEN = 5,
+    KING = 6
 };
 
 enum Color { WHITE, BLACK };
@@ -329,49 +336,59 @@ const std::map<Piece, double> mobility_weights = {
     {KING,   0.1}
 };
 
-inline int W_MOBILITY        = 5;
-inline int W_KING_SAFETY     = 10;
-inline int W_PAWN_STRUCTURE  = 15;
-inline int W_BISHOP_PAIR     = 40;
-inline int W_CENTER_CONTROL  = 20;
-inline int W_PAWN_SHELTER    = 12;
-inline int W_ROOK_OPEN       = 15;
-inline int W_OUTPOST         = 8;
-inline int W_TROPISM         = 5;
-inline int W_SPACE           = 3;
-inline int W_THREAT          = 10;
+int W_MOBILITY        = 5;
+int W_KING_SAFETY     = 10;
+int W_PAWN_STRUCTURE  = 15;
+int W_BISHOP_PAIR     = 40;
+int W_CENTER_CONTROL  = 20;
+int W_PAWN_SHELTER    = 12;
+int W_ROOK_OPEN       = 15;
+int W_OUTPOST         = 8;
+int W_TROPISM         = 5;
+int W_SPACE           = 3;
+int W_THREAT          = 10;
 
+double game_phase(chess::Board board) {
+    std::map<Piece, int> phase_weights = {
+        {QUEEN, 4}, {ROOK, 2}, {BISHOP, 1}, {KNIGHT, 1}
+    };
 
+    std::map<Piece, int> max_counts = {
+        {QUEEN, 1}, {ROOK, 2}, {BISHOP, 2}, {KNIGHT, 2}
+    };
 
+    int max_phase = 24;
+    int phase = 0;
+    for (const auto& entry : phase_weights) {
+        Piece piece = entry.first;
+        phase += board.pieces(piece, WHITE).size() * phase_weights[piece];
+        phase += board.pieces(piece, BLACK).size() * phase_weights[piece];
 
-// Hàm tính toán phase của ván cờ
-// double game_phase(chess::Board board) {
-//     std::map<Piece, int> phase_weights = {
-//         {QUEEN, 4}, {ROOK, 2}, {BISHOP, 1}, {KNIGHT, 1}
-//     };
-    
-//     std::map<Piece, int> max_counts = {
-//         {QUEEN, 1}, {ROOK, 2}, {BISHOP, 2}, {KNIGHT, 2}
-//     };
+    }
 
-//     int max_phase = 0;
-//     for (const auto& entry : phase_weights) {
-//         Piece piece = entry.first;
-//         max_phase += phase_weights[piece] * max_counts[piece] * 2;
-//     }
+    return std::min(1.0, static_cast<double>(phase) / max_phase);
+}
 
-//     int phase = 0;
-//     for (const auto& entry : phase_weights) {
-//         Piece piece = entry.first;
-//         phase += board.pieces(piece, WHITE) * phase_weights[piece];
-//         phase += board.pieces(piece, BLACK) * phase_weights[piece];
-        
-//     }
+double eval_pst(chess::Board board) {
+    double mg = game_phase(board);
+    double eg = 1.0 - mg;
+    double score = 0;
+    for (int sq = 0; sq < 64; ++sq) {
+        if (!board.piece_at(sq)) continue;
+        auto opt_piece = board.piece_at(sq);
+        if (!opt_piece) continue;
+        chess::Piece piece = *opt_piece;
+        bool is_white = piece.color;
+        int idx = sq;
+        const auto& pst_mg = is_white ? wpiece_values.at(static_cast<Piece>(piece.piece_type)).first: bpiece_values.at(static_cast<Piece>(piece.piece_type)).first;
+        const auto& pst_eg = is_white ? wpiece_values.at(static_cast<Piece>(piece.piece_type)).second : bpiece_values.at(static_cast<Piece>(piece.piece_type)).second;
+        double value = (pst_mg[idx] * mg + pst_eg[idx] * eg);
+        score += is_white ? value : -value;
+    }
+    return score / (5255 + 435);
+}
 
-//     return std::min(1.0, static_cast<double>(phase) / max_phase);
-// }
-
-inline int evaluate(chess::Board board) {
+double evaluate(chess::Board board) {
     if (board.is_checkmate()) {
         return board.turn == WHITE ? -MATE_SCORE : MATE_SCORE;
     }
@@ -382,9 +399,8 @@ inline int evaluate(chess::Board board) {
         return 0;
     }
 
-    int total = 0;
-
-    // total += eval_pst(board);
+    double total = 0;
+    total += eval_pst(board);
     // total += W_MOBILITY * eval_mobility(board);
     // total += W_KING_SAFETY * eval_king_safety(board);
     // total += eval_pawn_structure(board);
