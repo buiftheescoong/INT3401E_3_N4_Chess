@@ -6,8 +6,8 @@
 #include <stdexcept>
 #include <fstream> 
 #include "heuristic.cpp"
-
-
+#include "TranspositionTable.cpp"
+#include "ZobristHashing.cpp"
 
 std::vector<std::vector<chess::Move>> killer_move(64, std::vector<chess::Move>(2, chess::Move(0, 0)));
 
@@ -78,7 +78,7 @@ double quiescence_search(chess::Board& board, double alpha, double beta, bool is
     }
 
     std::vector<chess::Move> captures;
-    for (auto& move : board.legal_moves()) {
+    for (auto& move : board.generate_legal_moves()) {
         if (board.is_capture(move))
             captures.push_back(move);
     }
@@ -116,7 +116,24 @@ std::vector<chess::Move> get_ordered_moves(chess::Board& board, int depth) {
     return legal_moves;
 }
 
-double minimax(int depth, chess::Board& board, double alpha, double beta, bool is_maximising_player) {
+double minimax(int depth, chess::Board& board, double alpha, double beta, bool is_maximising_player, TranspositionTable& tt) {
+    double original_alpha = alpha;
+    if (TranspositionTable::Entry* entry = tt.retrieve(board, depth)) {
+        if (entry->depth >= depth) {
+            switch (entry->flag) {
+                case NodeType::EXACT:
+                    return entry->score;
+                case NodeType::LOWERBOUND:
+                    alpha = std::max(alpha, entry->score);         
+                    break;
+                case NodeType::UPPERBOUND:
+                    beta = std::min(beta, entry->score);
+                    break;
+            }
+            if (alpha >= beta) return entry->score;
+        }
+    }
+
     if (board.is_checkmate()) return is_maximising_player ? -MATE_SCORE : MATE_SCORE;
     if (board.is_game_over()) return 0.0;
     if (depth == 0) return quiescence_search(board, alpha, beta, is_maximising_player);
@@ -124,25 +141,34 @@ double minimax(int depth, chess::Board& board, double alpha, double beta, bool i
     // === Null Move Pruning ===
     if (depth >= 3 && !board.is_check() && is_maximising_player) {
         board.push(chess::Move::null());
-        double score = -minimax(depth - 1 - 2, board, -beta, -beta + 1, false);
+        double score = -minimax(depth - 1 - 2, board, -beta, -beta + 1, false,  tt);
         board.pop();
 
         if (score >= beta) return beta;  // Fail-hard beta cutoff
     }
 
     double best_value = is_maximising_player ? -INFINITY : INFINITY;
+    
+    chess::Move best_move = chess::Move(0, 0);
     std::vector<chess::Move> moves = get_ordered_moves(board, depth);
 
     for (chess::Move move : moves) {
         board.push(move);
-        double val = minimax(depth - 1, board, alpha, beta, !is_maximising_player);
+        double val = minimax(depth - 1, board, alpha, beta, !is_maximising_player, tt);
         board.pop();
 
         if (is_maximising_player) {
-            best_value = std::max(best_value, val);
+            if (best_value < val) {
+                best_value = val;
+                best_move = move;
+            }
             alpha = std::max(alpha, best_value);
         } else {
-            best_value = std::min(best_value, val);
+            if (best_value > val) {
+                best_value = val;
+                best_move = move;
+
+            }
             beta = std::min(beta, best_value);
         }
 
@@ -169,12 +195,22 @@ double minimax(int depth, chess::Board& board, double alpha, double beta, bool i
         }
         
     }
+    NodeType flag;
+    if (best_value <= original_alpha) {
+        flag = NodeType::UPPERBOUND;
+    } else if (best_value >= beta) {
+        flag = NodeType::LOWERBOUND;
+    } else {
+        flag = NodeType::EXACT;
+    }
+
+    tt.store(board, best_value, depth, best_move, flag);
 
     return best_value;
 }
 
 
-chess::Move minimax_root(int depth, chess::Board& board) {
+chess::Move minimax_root(int depth, chess::Board& board, TranspositionTable& tt) {
     bool maximize = board.turn == chess::WHITE;
     double best_score = maximize ? -INFINITY : INFINITY;
     chess::Move best_move = chess::Move(0, 0);
@@ -182,7 +218,7 @@ chess::Move minimax_root(int depth, chess::Board& board) {
 
     for (chess::Move move : moves) {
         board.push(move);
-        double score = board.can_claim_draw() ? 0.0 : minimax(depth - 1, board, -INFINITY, INFINITY, !maximize);
+        double score = board.can_claim_draw() ? 0.0 : minimax(depth - 1, board, -INFINITY, INFINITY, !maximize, tt);
         board.pop();
 
         if ((maximize && score > best_score) || (!maximize && score < best_score)) {
@@ -197,11 +233,12 @@ chess::Move minimax_root(int depth, chess::Board& board) {
 chess::Move get_best_move(chess::Board& board, int time_limit = 10) {
     std::cout << "\n\nThinking..." << std::endl;
     std::time_t start = std::time(nullptr);
-
+    ZobristHashing zobrist;
+    TranspositionTable tt(zobrist);
     chess::Move best_move = chess::Move(0,0);
     int depth = 1, max_depth = 8;
     while (std::difftime(std::time(nullptr), start) < time_limit && depth <= max_depth) {
-        best_move = minimax_root(depth, board);
+        best_move = minimax_root(depth, board, tt);
         std::cout << "Using heuristic for depth " << depth << std::endl;
         if (std::difftime(std::time(nullptr), start) >= time_limit) break;
         depth++;
