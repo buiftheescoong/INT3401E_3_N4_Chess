@@ -1,83 +1,63 @@
-// #include <iostream>
-// #include <cstdlib>
-// #include <ctime>
-// #include "ZobristHashing.h"
-
-
-
-//     class ZobristHashing {
-//     public:
-//         ZobristHashing() {
-//             srand(static_cast<unsigned int>(time(0))); 
-
-//             for (int r = 0; r < 8; ++r) {
-//                 for (int c = 0; c < 8; ++c) {
-//                     for (int p = 0; p < 7; ++p) {  
-//                         for (int color = 0; color < 2; ++color) {  
-//                             zobrist_table[r][c][p][color] = rand(); 
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-
-//         size_t hash(const chess::Board& board) {
-//             size_t hash_value = 0;
-            
-//             // Duyệt qua toàn bộ bàn cờ và tính toán băm dựa trên vị trí của các quân cờ
-//             for (int r = 0; r < 8; ++r) {
-//                 for (int c = 0; c < 8; ++c) {
-//                     if (board.piece_at(r * 8 + c)) {
-//                         // XOR với giá trị ngẫu nhiên của quân cờ tại vị trí (r, c)
-//                         chess::Piece piece = *board.piece_at(r * 8 + c);
-//                         hash_value ^= zobrist_table[r][c][static_cast<int>(piece.piece_type)][static_cast<int>(piece.color)];
-//                     }
-//                 }
-//             }
-
-//             // Thêm thông tin về trạng thái của game (kiểm tra, kết thúc game)
-//             // if (board.is_check()) hash_value ^= 0x8000000000000000;  // Thêm một bit nếu đang bị chiếu
-//             // if (board.is_game_over) hash_value ^= 0x4000000000000000;  // Thêm một bit nếu game kết thúc
-
-//             return hash_value;
-//         }
-
-//     private:
-//         size_t zobrist_table[8][8][7][2];  // Bảng ngẫu nhiên cho các quân cờ và màu sắc
-//     };
-    
 #include "ZobristHashing.h"
-#include <cstdlib>
-#include <ctime>
 #include <random>
 
 ZobristHashing::ZobristHashing() {
-    std::mt19937_64 rng(static_cast<unsigned int>(time(0))); // random 64-bit
-    std::uniform_int_distribution<uint64_t> dist;
+    std::mt19937_64 rng(std::random_device{}());
+    for (int p = 0; p < NUM_PIECE_TYPES; ++p)
+        for (int c = 0; c < NUM_COLORS; ++c)
+            for (int s = 0; s < NUM_SQUARES; ++s)
+                zobrist_keys[p][c][s] = rng();
 
-
-    for (int r = 0; r < 8; ++r) {
-        for (int c = 0; c < 8; ++c) {
-            for (int p = 0; p < 7; ++p) {
-                for (int color = 0; color < 2; ++color) {
-                    zobrist_table[r][c][p][color] = dist(rng);
-                }
-            }
-        }
-    }
+    black_hash = rng();
 }
 
-uint64_t ZobristHashing::hash(const chess::Board& board) {
-    uint64_t hash_value = 0;
+uint64_t ZobristHashing::update_key(const chess::Board& board, const chess::Move& move, uint64_t cur_key) {
+    uint64_t new_key = cur_key ^ black_hash;
+    int from = move.from_square;
+    int to = move.to_square;
 
-    for (int r = 0; r < 8; ++r) {
-        for (int c = 0; c < 8; ++c) {
-            if (board.piece_at(r * 8 + c)) {
-                chess::Piece piece = *board.piece_at(r * 8 + c);
-                hash_value ^= zobrist_table[r][c][static_cast<int>(piece.piece_type - 1)][static_cast<int>(piece.color)];
+    
+
+    if (board.piece_at(from) && board.piece_at(to)) {
+        const chess::Piece from_piece = *board.piece_at(from);
+        const chess::Piece to_piece = *board.piece_at(to);
+       
+        int pieceF = from_piece.piece_type;
+        int colorF = from_piece.color;
+        new_key ^= zobrist_keys[pieceF][colorF][from];
+        new_key ^= zobrist_keys[pieceF][colorF][to];
+        int pieceT = to_piece.piece_type;
+        int colorT = to_piece.color;
+        new_key ^= zobrist_keys[pieceT][colorT][to];
+            
+        if (board.is_castling(move)) {
+            if (board.turn) {
+                if (board.is_queenside_castling(move))
+                    new_key ^= zobrist_keys[4][1][0] ^ zobrist_keys[4][1][3];
+                else if (board.is_kingside_castling(move))
+                    new_key ^= zobrist_keys[4][1][7] ^ zobrist_keys[4][1][5];
+            } else {
+                if (board.is_queenside_castling(move))
+                    new_key ^= zobrist_keys[4][0][56] ^ zobrist_keys[4][0][59];
+                else if (board.is_kingside_castling(move))
+                    new_key ^= zobrist_keys[4][0][63] ^ zobrist_keys[4][0][61];
             }
+        } else if (board.is_en_passant(move)) {
+            if (board.turn) {
+                if (to - from == 9) new_key ^= zobrist_keys[1][0][from + 1];
+                else if (to - from == 7) new_key ^= zobrist_keys[1][0][from - 1];
+            } else {
+                if (from - to == 9) new_key ^= zobrist_keys[1][1][from - 1];
+                else if (from - to == 7) new_key ^= zobrist_keys[1][1][from + 1];
+            }
+        } else if (move.promotion) {
+            int colorF = from_piece.color;
+            int pawn = from_piece.piece_type;
+            int promo = *move.promotion;
+            new_key ^= zobrist_keys[pawn][colorF][to];
+            new_key ^= zobrist_keys[promo][colorF][to];
         }
     }
 
-    return hash_value;
+    return new_key;
 }
