@@ -72,8 +72,8 @@ int move_ordering(chess::Board board, chess::Move move, int depth) {
 }
 
 double quiescence_search(chess::Board& board, double alpha, double beta, bool is_maximising_player, int depth) {
-    double stand_pat = is_maximising_player *  evaluate(board);
-    
+    double stand_pat = is_maximising_player ? evaluate(board) : -evaluate(board);
+
     if (stand_pat >= beta) return beta;
     
     if (stand_pat > alpha) alpha = stand_pat;
@@ -86,10 +86,6 @@ double quiescence_search(chess::Board& board, double alpha, double beta, bool is
         if (board.is_capture(move))
             captures.push_back(move);
     }
-
-    // std::sort(captures.begin(), captures.end(), [&](const chess::Move& a, const chess::Move& b) {
-    //     return move_ordering(board, a, 0) > move_ordering(board, b, 0);
-    // });
 
     for (auto& move : captures) {
         board.push(move);
@@ -119,21 +115,6 @@ std::vector<chess::Move> get_ordered_moves(chess::Board& board, int depth) {
 
 double negamax(int depth, chess::Board& board, double alpha, double beta, bool is_maximising_player,bool do_null, uint64_t key) {
     double original_alpha = alpha;
-    // if (TranspositionTable::Entry* entry = tt.retrieve(board, depth)) {
-    //     if (entry->depth >= depth) {
-    //         switch (entry->flag) {
-    //             case NodeType::EXACT:
-    //                 return entry->score;
-    //             case NodeType::LOWERBOUND:
-    //                 alpha = std::max(alpha, entry->score);         
-    //                 break;
-    //             case NodeType::UPPERBOUND:
-    //                 beta = std::min(beta, entry->score);
-    //                 break;
-    //         }
-    //         if (alpha >= beta) return entry->score;
-    //     }
-    // }
 
     Entry* cur_entry = transposition_table.lookup(key);
     if (cur_entry != nullptr && cur_entry->depth >= depth) {
@@ -150,14 +131,13 @@ double negamax(int depth, chess::Board& board, double alpha, double beta, bool i
         }
     }
 
-    if (board.outcome()) return is_maximising_player * evaluate(board);
-    // if (board.is_checkmate()) return is_maximising_player ? -MATE_SCORE : MATE_SCORE;
-    // if (board.is_game_over()) return 0.0;
+    if (board.outcome()) return is_maximising_player ? evaluate(board) : -evaluate(board);
+
     if (depth == 0) {
         if (!board.is_check()) {
             return quiescence_search(board, alpha, beta, is_maximising_player, 6);
         }
-        return is_maximising_player * evaluate(board);
+        return is_maximising_player ? evaluate(board) : -evaluate(board);
     }
 
     // === Null Move Pruning ===
@@ -185,20 +165,6 @@ double negamax(int depth, chess::Board& board, double alpha, double beta, bool i
             best_value = val;
             best_move = move;
         }
-        // if (is_maximising_player) {
-        //     if (best_value < val) {
-        //         best_value = val;
-        //         best_move = move;
-        //     }
-        //     alpha = std::max(alpha, best_value);
-        // } else {
-        //     if (best_value > val) {
-        //         best_value = val;
-        //         best_move = move;
-
-        //     }
-        //     beta = std::min(beta, best_value);
-        // }
 
         if (best_value > alpha) {
             alpha = best_value;
@@ -222,16 +188,6 @@ double negamax(int depth, chess::Board& board, double alpha, double beta, bool i
             
             }
         
-            // Also update history heuristic
-            // if (!board.is_capture(move) ) {
-            //     if (auto optional_from_piece = board.piece_at(move.from_square)) {
-            //         chess::Piece from_piece = *optional_from_piece;
-            //         int piece = from_piece.piece_type;
-            //         int color = from_piece.color;
-            //         history_move[piece][color][move.to_square] += depth * depth;
-            //     }
-            // }
-        
             break;
         }
         
@@ -250,27 +206,6 @@ double negamax(int depth, chess::Board& board, double alpha, double beta, bool i
     return best_value;
 }
 
-
-// chess::Move minimax_root(int depth, chess::Board& board, TranspositionTable& tt) {
-//     bool maximize = board.turn == chess::WHITE;
-//     double best_score = maximize ? -INFINITY : INFINITY;
-//     chess::Move best_move = chess::Move(0, 0);
-//     std::vector<chess::Move> moves = get_ordered_moves(board, depth);
-
-//     for (chess::Move move : moves) {
-//         board.push(move);
-//         double score = board.can_claim_draw() ? 0.0 : minimax(depth - 1, board, -INFINITY, INFINITY, !maximize, tt);
-//         board.pop();
-
-//         if ((maximize && score > best_score) || (!maximize && score < best_score)) {
-//             best_score = score;
-//             best_move = move;
-//         }
-//     }
-
-//     return best_move;
-// }
-
 chess::Move get_best_move(chess::Board& board, int time_limit = 10) {
     bool maximize = board.turn == chess::WHITE;
     std::cout << "\n\nThinking..." << std::endl;
@@ -288,10 +223,10 @@ chess::Move get_best_move(chess::Board& board, int time_limit = 10) {
         current_key ^= zobrist.black_hash;
     }
 
-    int depth = 1, max_depth = 15;
+    int depth = 1, max_depth = 6;
     auto ids_start = std::chrono::high_resolution_clock::now();
     double runtime = 0;
-    while (runtime < time_limit && depth <= max_depth) {
+    while (/*runtime < time_limit &&*/ depth <= max_depth) {
          std::cout << "\ndepth: " << (depth + 1) << std::endl;
 
         std::vector<chess::Move> moves = get_ordered_moves(board, depth);
@@ -317,7 +252,7 @@ chess::Move get_best_move(chess::Board& board, int time_limit = 10) {
             
             auto now = std::chrono::high_resolution_clock::now();
             runtime = std::chrono::duration<double>(now - ids_start).count();
-            if (runtime > 10) break;
+            //if (runtime > 10) break;
         }
         depth++;
     }

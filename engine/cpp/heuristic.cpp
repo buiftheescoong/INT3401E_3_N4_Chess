@@ -385,7 +385,7 @@ double eval_pst(chess::Board board) {
         double value = (pst_mg[idx] * mg + pst_eg[idx] * eg);
         score += is_white ? value : -value;
     }
-    return score / (5255 + 435);
+    return score;
 }
 
 double evaluate(chess::Board board) {
