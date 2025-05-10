@@ -50,7 +50,7 @@ int move_ordering(chess::Board board, chess::Move move, int depth) {
             }
         }
         attacker = Piece((*board.piece_at(from_square)).piece_type);
-        move_score += MVV_LVA[victim][attacker];
+        move_score += MVV_LVA[attacker][victim];
     } else {
         if (depth < 64) {
             if (move == killer_move[depth][0])
@@ -92,9 +92,9 @@ double quiescence_search(chess::Board& board, double alpha, double beta, bool is
         double score = -quiescence_search(board, -beta, -alpha, !is_maximising_player, depth - 1);
         board.pop();
 
-       
+
         if (score >= beta) return beta;
-       
+
         if (score > alpha) alpha = score;
     }
 
