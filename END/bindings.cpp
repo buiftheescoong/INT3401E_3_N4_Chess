@@ -1,51 +1,90 @@
+#include <iostream>
 #include <pybind11/pybind11.h>
 #include <string>
 #include <optional>
-#include "ComputeMove.h"     // nơi chứa get_best_move
+#include <algorithm>
+#include "ComputeMove.h"
 #include "chess/chess.h"
 
 namespace py = pybind11;
 
-// Chuyển từ Square (int 0–63) sang dạng "e2", "h8", ...
-std::string square_to_str(int square) {
-    char file = 'a' + (square % 8);
-    char rank = '1' + (square / 8);
-    return std::string() + file + rank;
+bool engine_resources_initialized = false;
+
+// Hàm lọc ký tự không hợp lệ trong FEN (ASCII printable)
+std::string sanitize_fen(const std::string& raw_fen) {
+    std::string clean;
+    for (char c : raw_fen) {
+        // Giữ lại các ký tự in được và bỏ các ký tự điều khiển như \n, \r
+        if (c >= 32 && c <= 126) {
+            clean += c;
+        }
+    }
+    return clean;
 }
 
-// Chuyển từ chess::Move thành chuỗi UCI (ví dụ: "e2e4", "e7e8q")
-std::string move_to_string(const chess::Move &move) {
-    std::string s = square_to_str(move.from_square) + square_to_str(move.to_square);
 
-    if (move.promotion.has_value()) {
-        char promo_char;
-        switch (move.promotion.value()) {
-            case chess::QUEEN: promo_char = 'q';
-                break;
-            case chess::ROOK: promo_char = 'r';
-                break;
-            case chess::BISHOP: promo_char = 'b';
-                break;
-            case chess::KNIGHT: promo_char = 'n';
-                break;
-            default: promo_char = '?';
-                break;
-        }
-        s += promo_char;
+std::string get_best_move_binding(const std::string& fen_string, int max_depth, double time_limit_seconds) {
+
+    if (!engine_resources_initialized) {
+        initialize_engine_resources();
+        engine_resources_initialized = true;
+        std::cout << "C++ Engine resources initialized." << std::endl;
     }
 
-    return s;
+    try {
+        chess::Board board;
+
+        std::string clean_fen = sanitize_fen(fen_string);
+
+        try {
+            board.set_fen(clean_fen);
+        } catch (const std::invalid_argument& e) {
+            throw py::value_error(std::string("Invalid FEN string for board setup: '") + clean_fen + "'. Error: " + e.what());
+        }
+
+        std::pair<chess::Move, int> result = get_best_move(board, max_depth, time_limit_seconds);
+        chess::Move best_move_cpp = result.first;
+
+        if (best_move_cpp == chess::Move::null()) {
+            if (board.is_game_over(true)) {
+                throw std::runtime_error(std::string("Game is over or no legal moves. Result: ") + board.result());
+            }
+            throw std::runtime_error("Engine could not determine a best move, but game is not over.");
+        }
+
+        return best_move_cpp.uci();
+
+    } catch (const py::value_error& e) {
+        throw;
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "C++ engine caught std::invalid_argument: " << e.what() << std::endl;
+        throw py::value_error(std::string("Invalid argument encountered in C++ engine: ") + e.what());
+    } catch (const std::out_of_range& e) {
+        std::cerr << "C++ engine caught std::out_of_range: " << e.what() << std::endl;
+        throw std::runtime_error(std::string("C++ engine error (std::out_of_range): ") + e.what());
+    } catch (const std::exception& e) {
+        std::cerr << "C++ engine caught std::exception: " << e.what() << std::endl;
+        throw std::runtime_error(std::string("An error occurred in the C++ engine: ") + e.what());
+    } catch (...) {
+        std::cerr << "C++ engine caught unknown exception type." << std::endl;
+        throw std::runtime_error("An unknown error occurred in the C++ engine.");
+    }
 }
 
-// Hàm giao tiếp với Python: nhận FEN và trả nước đi tốt nhất dưới dạng UCI
-std::string get_best_move_fen(const std::string &fen, int time_limit = 200) {
-    chess::Board board(fen);
-    chess::Move move = get_best_move(board, time_limit);
-    return move_to_string(move);
-}
-
-// Binding module cho pybind11
 PYBIND11_MODULE(engine_binding, m) {
     m.doc() = "Chess Engine Binding using pybind11";
-    m.def("get_best_move", &get_best_move_fen, "Get best move from FEN", py::arg("fen"), py::arg("time_limit") = 200);
+
+    m.def("get_best_move", &get_best_move_binding, "Get best move from FEN string.",
+          py::arg("fen"),
+          py::arg("max_depth"),
+          py::arg("time_limit_seconds") = 10.0);
+
+    struct EngineInitializer {
+        EngineInitializer() {
+            if (!engine_resources_initialized) {
+                initialize_engine_resources();
+                engine_resources_initialized = true;
+            }
+        }
+    };
 }

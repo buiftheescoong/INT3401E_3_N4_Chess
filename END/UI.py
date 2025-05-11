@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
-import os
 import random
-import sys
 import time
 import sys
-import sys
-sys.path.append("E:/AI/INT3401E_3_N4_Chess/END/cmake-build-debug")
 import engine_binding
-
+from Elo_Calculation import Elo_Cal
 import chess.polyglot
 import pygame
 
@@ -26,7 +22,6 @@ SIDEBAR_WIDTH = 224  # Chiều rộng của sidebar
 SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
 SIDEBAR_HEIGHT = BOARD_SIZE  # Chiều cao của sidebar (chỉ đến hết bàn cờ)
 
-# --- Thay thế chức năng từ file ComputeMove.py ---
 import chess
 
 def get_best_move(board, time_limit=10000, search_depth=10):
@@ -47,17 +42,12 @@ def get_best_move(board, time_limit=10000, search_depth=10):
 
     # If opening book fails, use the C++ UCI engine
     try:
-        best_move_uci = engine_binding.get_best_move(board.fen())  # Truyền chuỗi FEN
-        print("Using UCI engine move")
-
-        # Chuyển từ chuỗi UCI thành đối tượng chess.Move
-        best_move = chess.Move.from_uci(best_move_uci)
-
-        end = time.time()
-        print(f"\nRuntime: {round(end - start, 2)}s")
-        return best_move, "UCI"
-    except Exception as e:
-        print(f"engine error: {str(e)}")
+        move_uci_str = engine_binding.get_best_move(board.fen(),20,15 )
+        best_move = chess.Move.from_uci(move_uci_str)
+        print("Using C++ UCI engine move")
+        return best_move, "uci"
+    except RuntimeError as e:
+        print(f"Python caught an error from C++ engine: {e}")
 
 
 # Màu sắc
@@ -73,7 +63,6 @@ BUTTON_HOVER_COLOR = (100, 100, 100)
 TEXT_COLOR = (220, 220, 220)
 
 # Font chữ (Thử dùng font hệ thống, nếu lỗi sẽ dùng font mặc định)
-botRating = 1200 #tên biến lưu elo của bot
 botWin = 0 #biến theo dõi trạng thái thắng thua của bot: 1 = thắng, -1 = thua, 0 = chưa có kết quả hoặc hòa
 try:
     MENU_FONT = pygame.font.SysFont("consolas", 30)
@@ -360,7 +349,7 @@ def draw_game_info(surface, current_board, current_game_mode):
 
     # Elo ratings
     if current_game_mode == "PVC":
-        elo_text = f"Player's Elo : {elo_input}    Computer's Elo : {botRating}"
+        elo_text = f"Player's Elo : {elo_input}    Computer's Elo : {bot_rating}"
         elo_surf = MSG_FONT.render(elo_text, True, TEXT_COLOR)
         elo_rect = elo_surf.get_rect(midleft=(20, BOARD_SIZE + MENU_HEIGHT * 0.5))
         surface.blit(elo_surf, elo_rect)
@@ -415,6 +404,14 @@ def get_game_over_message(current_board):
         # Có thể thêm các luật hòa khác nếu cần
         return "Game Over!"  # Trường hợp khác
 
+def get_game_elo(current_board):
+    global bot_rating, bot_win
+    if game_mode == "PVC" and current_board.is_checkmate():
+        if current_board.turn == chess.WHITE:
+            return Elo_Cal(bot_rating, int(elo_input) if elo_input.isdigit() else 1200, 0)
+        else:
+            return Elo_Cal(bot_rating, int(elo_input) if elo_input.isdigit() else 1200, 1)
+    return bot_rating
 
 def draw_game_over(surface, message):
     """Vẽ màn hình Game Over với thông báo và nút Back."""
@@ -904,6 +901,8 @@ def highlight_last_move(surface, move, game_current_state):
 # --- Vòng lặp chính ---
 load_piece_images()
 running = True
+with open('bot_elo.txt', 'r') as file:
+    bot_rating = float(file.read().strip())  # hoặc int(...) nếu là số nguyên
 
 while running:
     current_time = pygame.time.get_ticks()
@@ -1026,6 +1025,10 @@ while running:
                                 if board.is_game_over():
                                     game_state = "GAME_OVER"
                                     game_over_message = get_game_over_message(board)
+                                    if game_mode == "PVC":
+                                        bot_rating = get_game_elo(board)
+                                        with open('bot_elo.txt', 'w') as file:
+                                            file.write(str(bot_rating))
                                     print(f"Game Over: {game_over_message}")
                                 elif game_mode == "PVC":
                                     computer_move_pending = True
@@ -1089,6 +1092,10 @@ while running:
                             if board.is_game_over():
                                 game_state = "GAME_OVER"
                                 game_over_message = get_game_over_message(board)
+                                if game_mode == "PVC":
+                                    bot_rating = get_game_elo(board)
+                                    with open('bot_elo.txt', 'w') as file:
+                                        file.write(str(bot_rating))
                                 print(f"Game Over: {game_over_message}")
                             elif game_mode == "PVC" and board.turn == computer_color:
                                 computer_move_pending = True
@@ -1151,6 +1158,10 @@ while running:
             if board.is_game_over():
                 game_state = "GAME_OVER"
                 game_over_message = get_game_over_message(board)
+                if game_mode == "PVC":
+                    bot_rating = get_game_elo(board)
+                    with open('bot_elo.txt', 'w') as file:
+                        file.write(str(bot_rating))
                 print(f"Game Over: {game_over_message}")
         computer_move_pending = False
 
