@@ -64,8 +64,6 @@ Isolated pawns
 
 Doubled pawns
 
-Backward pawns
-
 Pawn islands
 
 Bonuses for:
@@ -74,7 +72,6 @@ Passed pawns
 
 Connected pawns
 
-Protected passed pawns
 
 🔹 Center Control
 
@@ -85,7 +82,7 @@ Bonus for pawns and pieces occupying or attacking central zones
 🔹 Outposts
 
 Bonus for knights and bishops occupying safe squares that cannot be attacked by enemy pawns.
-Encourages strong positional placement in the opponent’s half of the board.
+
 
 
 ## Opening Book
