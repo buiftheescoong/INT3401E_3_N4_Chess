@@ -28,7 +28,68 @@ GUI Ready: Compatible with the included Python UI <br>
 
 
 ## Evaluation Function
+🔹Material Balance
 
+Static piece values (Pawn = 100, Knight = 320, Bishop = 330, Rook = 500, Queen = 900)
+
+Bonus for Bishop pair
+
+Penalty for insufficient material
+
+🔹 Piece-Square Tables (PST)
+
+Separate PSTs for midgame and endgame
+
+Tables for all 6 piece types × both colors
+
+Encourages central control, king safety, pawn advancement in endgame
+
+🔹 Mobility
+
+Encourages piece activity by counting legal moves
+
+Rooks/bishops/queens rewarded for open/semi-open file access
+
+Penalize blocked or undeveloped pieces
+
+🔹 King Safety
+
+Pawn shield evaluation (especially around the castled king)
+
+Penalty for exposed king or weakened structure (e.g., missing f/g/h pawns)
+
+Bonus for castling
+
+🔹 Pawn Structure
+
+Penalties for:
+
+Isolated pawns
+
+Doubled pawns
+
+Backward pawns
+
+Pawn islands
+
+Bonuses for:
+
+Passed pawns (scaled with rank)
+
+Connected pawns
+
+Protected passed pawns
+
+🔹 Center Control
+
+Control over central squares (d4, d5, e4, e5)
+
+Bonus for pawns and pieces occupying or attacking central zones
+
+🔹 Outposts
+
+Bonus for knights and bishops occupying safe squares (typically 4th-6th rank) that cannot be attacked by enemy pawns.
+Encourages strong positional placement in the opponent’s half of the board.
 
 
 ## Opening Book
