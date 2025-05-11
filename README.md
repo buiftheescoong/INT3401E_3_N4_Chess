@@ -42,11 +42,8 @@ Separate PSTs for midgame and endgame
 
 Tables for all 6 piece types × both colors
 
-Encourages central control, king safety, pawn advancement in endgame
 
 🔹 Mobility
-
-Encourages piece activity by counting legal moves
 
 Rooks/bishops/queens rewarded for open/semi-open file access
 
@@ -58,7 +55,6 @@ Pawn shield evaluation (especially around the castled king)
 
 Penalty for exposed king or weakened structure (e.g., missing f/g/h pawns)
 
-Bonus for castling
 
 🔹 Pawn Structure
 
@@ -74,7 +70,7 @@ Pawn islands
 
 Bonuses for:
 
-Passed pawns (scaled with rank)
+Passed pawns 
 
 Connected pawns
 
@@ -88,7 +84,7 @@ Bonus for pawns and pieces occupying or attacking central zones
 
 🔹 Outposts
 
-Bonus for knights and bishops occupying safe squares (typically 4th-6th rank) that cannot be attacked by enemy pawns.
+Bonus for knights and bishops occupying safe squares that cannot be attacked by enemy pawns.
 Encourages strong positional placement in the opponent’s half of the board.
 
 
