@@ -411,6 +411,7 @@ const Bitboard BB_FILE_H = 0x0101010101010101ULL << 7;
         */
 
     public:
+        Move() = default;
         Square from_square;
         /* The source square. */
 

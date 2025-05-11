@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD 17)
 # Tìm Python và pybind11 (ưu tiên pybind11 nằm trong thư mục pybind11/)
 # Nếu bạn cài pybind11 bằng pip thì có thể bỏ phần add_subdirectory
 add_subdirectory(pybind11)
-find_package(pybind11 REQUIRED PATHS ${pybind11_DIR})
 
 # Bao gồm thư mục header
 include_directories(
@@ -19,6 +18,8 @@ include_directories(
 pybind11_add_module(engine_binding
         bindings.cpp
         ComputeMove.cpp
+        heuristic.cpp
+        TranspositionTable.cpp
         chess/chess.cpp
 )
 

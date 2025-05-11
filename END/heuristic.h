@@ -2,56 +2,62 @@
 #define HEURISTIC_H
 
 #include <array>
-#include <map>
-#include "chess/chess.h"
+#include <unordered_map> // For std::unordered_map
+#include "chess/chess.h" // For chess::Board, chess::PieceType, chess::Color, chess::Square etc.
+#include <cstdint>       // For fixed-width integer types, often useful with chess libraries
 
-// Constants
-extern const int MATE_SCORE;
+namespace chess_eval {
 
-// Piece type enumeration
-enum Piece {
-    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
+const int MATE_SCORE = 1000000; // A common value, adjust if needed.
+
+struct PieceTables {
+    const std::array<int, 64>& mg_table; // Reference to Midgame table
+    const std::array<int, 64>& eg_table; // Reference to Endgame table
+
 };
 
-enum Color { WHITE, BLACK };
+extern const std::unordered_map<chess::PieceType, PieceTables> W_PIECE_VALUES;
 
-// Piece-Square Tables declarations
-extern const std::array<int, 64> WPAWN_MG, WPAWN_EG;
-extern const std::array<int, 64> WKNIGHT_MG, WKNIGHT_EG;
-extern const std::array<int, 64> WBISHOP_MG, WBISHOP_EG;
-extern const std::array<int, 64> WROOK_MG, WROOK_EG;
-extern const std::array<int, 64> WQUEEN_MG, WQUEEN_EG;
-extern const std::array<int, 64> WKING_MG, WKING_EG;
+extern const std::unordered_map<chess::PieceType, PieceTables> B_PIECE_VALUES;
 
-extern const std::array<int, 64> BPAWN_MG, BPAWN_EG;
-extern const std::array<int, 64> BKNIGHT_MG, BKNIGHT_EG;
-extern const std::array<int, 64> BBISHOP_MG, BBISHOP_EG;
-extern const std::array<int, 64> BROOK_MG, BROOK_EG;
-extern const std::array<int, 64> BQUEEN_MG, BQUEEN_EG;
-extern const std::array<int, 64> BKING_MG, BKING_EG;
+extern const std::unordered_map<chess::PieceType, int> PIECE_MATERIAL_VALUES;
 
-// Type definitions
-using PieceValuePair = std::pair<const std::array<int, 64>&, const std::array<int, 64>&>;
+extern const std::unordered_map<chess::PieceType, double> MOBILITY_PIECE_FACTORS;
 
-// Piece values maps
-extern const std::map<Piece, PieceValuePair> wpiece_values;
-extern const std::map<Piece, PieceValuePair> bpiece_values;
-extern const std::map<Piece, double> mobility_weights;
 
-// Evaluation weights
-extern int W_MOBILITY;
-extern int W_KING_SAFETY;
-extern int W_PAWN_STRUCTURE;
-extern int W_BISHOP_PAIR;
-extern int W_CENTER_CONTROL;
-extern int W_PAWN_SHELTER;
-extern int W_ROOK_OPEN;
-extern int W_OUTPOST;
-extern int W_TROPISM;
-extern int W_SPACE;
-extern int W_THREAT;
+/**
+ * @brief Calculates the overall score of the current board position.
+ * Handles terminal states like checkmate and stalemate.
+ * Returns score from White's perspective (positive is good for White, negative for Black).
+ *
+ * @param board The chess board to evaluate. Passed by reference as it might be modified
+ *              if future versions uncomment mobility calculations involving push/pop.
+ * @return double The evaluation score.
+ */
+int score(chess::Board& board);
 
-// Function declarations
-int evaluate(chess::Board board);
+/**
+ * @brief Calculates the material and positional score based on piece-square tables.
+ * Implements tapered evaluation, blending midgame and endgame scores based on remaining material.
+ * Returns score from White's perspective.
+ *
+ * @param board The chess board to evaluate. Passed by const reference as it's not modified.
+ * @return double The calculated positional and material score.
+ */
+int calculate_score(const chess::Board& board);
+
+/**
+ * @brief Calculates a mobility score for the current player.
+ * Considers the number of legal moves for different piece types.
+ *
+ * @param board The chess board to evaluate. Passed by reference as generating moves
+ *              might depend on a non-const Board API in some libraries, or for future flexibility.
+ * @return double The mobility score. Positive if it's White's turn and White has good mobility,
+ *         negative if it's Black's turn and Black has good mobility (relative to the side to move).
+ *         The current implementation in the .cpp subtracts for black pieces.
+ */
+int mobility(chess::Board& board);
+
+} // namespace chess_eval
 
 #endif // HEURISTIC_H
