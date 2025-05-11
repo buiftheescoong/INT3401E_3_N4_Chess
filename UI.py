@@ -16,9 +16,9 @@ pygame.init()
 TOP_MARGIN = 50
 WIDTH, HEIGHT = 800, 800
 BOARD_SIZE = 640  # Kích thước bàn cờ (nên chia hết cho 8)
-SQUARE_SIZE = BOARD_SIZE // 8  # Sửa thành chia đúng cho 8
+SQUARE_SIZE = BOARD_SIZE // 9  # Sửa thành chia đúng cho 8
 MENU_HEIGHT = HEIGHT - BOARD_SIZE
-SIDEBAR_WIDTH = 250  # Chiều rộng của sidebar
+SIDEBAR_WIDTH = 224  # Chiều rộng của sidebar
 SIDEBAR_X = WIDTH - SIDEBAR_WIDTH  # Vị trí X bắt đầu của sidebar
 SIDEBAR_HEIGHT = BOARD_SIZE  # Chiều cao của sidebar (chỉ đến hết bàn cờ)
 
