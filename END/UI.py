@@ -42,12 +42,13 @@ def get_best_move(board, time_limit=10000, search_depth=10):
 
     # If opening book fails, use the C++ UCI engine
     try:
-        move_uci_str = engine_binding.get_best_move(board.fen(),20,15 )
-        best_move = chess.Move.from_uci(move_uci_str)
-        print("Using C++ UCI engine move")
-        return best_move, "uci"
-    except RuntimeError as e:
-        print(f"Python caught an error from C++ engine: {e}")
+        cpp_move = engine_binding.get_best_move(board.fen(), 20, 15)
+        best_move = chess.Move.from_uci(cpp_move.uci())  # Convert về python-chess move
+        return best_move, "engine"
+    except Exception as e:
+        print(f"C++ engine error: {e}")
+
+
 
 
 # Màu sắc
