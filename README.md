@@ -25,13 +25,21 @@ GUI Ready: Compatible with the included Python UI <br>
 
 ## Search Algorithm
 🔹Negamax search
+
 🔹Quiescence Search
+
 🔹Iterative Deepening Search
+
 🔹TranspositionTable
+
 🔹Static Exchange Evaluation
+
 🔹Killer Moves
+
 🔹History Moves
+
 🔹Zobrist Hashing
+
 🔹Move Ordering
 
 
