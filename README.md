@@ -24,7 +24,11 @@ GUI Ready: Compatible with the included Python UI <br>
 
 
 ## Search Algorithm
-🔹Negamax search
+🔹Opening Book
+
+🔹Negamax Search
+
+🔹Alpha-Beta Pruning
 
 🔹Quiescence Search
 
@@ -34,6 +38,8 @@ GUI Ready: Compatible with the included Python UI <br>
 
 🔹Static Exchange Evaluation
 
+🔹MVV-LVAư
+
 🔹Killer Moves
 
 🔹History Moves
@@ -41,6 +47,8 @@ GUI Ready: Compatible with the included Python UI <br>
 🔹Zobrist Hashing
 
 🔹Move Ordering
+
+🔹Null Move Pruning
 
 
 ## Evaluation Function
