@@ -1,7 +1,8 @@
 # INT3401E_3_N4_Chess
 A high-performance chess engine implemented in C++ with Python bindings.
 # DEMO
-[Demo my bot plays with chess engine 2200 ELO:](https://drive.google.com/file/d/1ODzqP8zBzFM3Iy-9Vq-TN8cBcawQeAgO/view?usp=sharing)
+[Demo my bot plays with chess engine 2200 ELO](https://drive.google.com/file/d/1ODzqP8zBzFM3Iy-9Vq-TN8cBcawQeAgO/view?usp=sharing)
+[Thuật toán tìm kiếm, cắt tỉa và hàm đánh giá thế cờ](https://drive.google.com/file/d/1IluT5xBlQxKrgXxeZpLJGFAXapL9HUem/view?usp=sharing)
 # Thành viên
 Trương Minh Phước - 22028024 - Thuật toán <br>
 Bùi Thế Công - 22028193 - Thuật toán <br>
