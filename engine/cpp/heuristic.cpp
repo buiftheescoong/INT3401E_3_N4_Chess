@@ -368,6 +368,129 @@ double game_phase(chess::Board board) {
 
     return std::min(1.0, static_cast<double>(phase) / max_phase);
 }
+double eval_mobility(const chess::Board& board) {
+    double score = 0;
+    for (auto color : {WHITE, BLACK}) {
+        double side_score = 0;
+        for (const auto& [piece_type, weight] : mobility_weights) {
+            auto pieces = board.pieces(static_cast<Piece>(piece_type), color);
+            for (auto sq : pieces) {
+                auto attacks = board.attacks_from(sq);  // trả về mask các ô có thể tấn công
+                side_score += weight * attacks.size();
+            }
+        }
+        score += (color == WHITE ? 1 : -1) * side_score;
+    }
+    return score;
+}
+double eval_king_safety(const chess::Board& board) {
+    double score = 0;
+    for (auto color : {WHITE, BLACK}) {
+        auto king_sq = board.king_square(color);
+        int shield = 0;
+
+        int rank = king_sq / 8;
+        int file = king_sq % 8;
+        int dir = (color == WHITE) ? 1 : -1;
+
+        for (int df = -1; df <= 1; ++df) {
+            int f = file + df;
+            int r = rank + dir;
+            if (f >= 0 && f < 8 && r >= 0 && r < 8) {
+                int idx = r * 8 + f;
+                auto p = board.piece_at(idx);
+                if (p && p->piece_type == PAWN && p->color == color)
+                    ++shield;
+            }
+        }
+
+        double king_penalty = (3 - shield) * 20;
+        score += (color == WHITE ? -king_penalty : king_penalty);
+    }
+    return score;
+}
+double eval_pawn_structure(const chess::Board& board) {
+    double score = 0;
+    for (auto color : {WHITE, BLACK}) {
+        std::array<int, 8> file_counts = {};
+        std::array<bool, 8> has_pawn = {};
+        auto pawns = board.pieces(PAWN, color);
+        int isolated = 0, doubled = 0, islands = 0, connected = 0, passed = 0;
+
+        for (int sq : pawns) {
+            int file = sq % 8;
+            file_counts[file]++;
+            has_pawn[file] = true;
+        }
+
+        // doubled & isolated
+        for (int f = 0; f < 8; ++f) {
+            if (file_counts[f] > 1) doubled++;
+            bool left = (f > 0) ? has_pawn[f - 1] : false;
+            bool right = (f < 7) ? has_pawn[f + 1] : false;
+            if (!left && !right && has_pawn[f]) isolated++;
+        }
+
+        // islands
+        for (int f = 0; f < 8; ++f)
+            if (has_pawn[f] && (f == 0 || !has_pawn[f - 1]))
+                islands++;
+
+        int penalty = 10 * isolated + 8 * doubled + 5 * islands;
+        score += (color == WHITE ? -penalty : penalty);
+    }
+    return score;
+}
+double eval_center_control(const chess::Board& board) {
+    std::array<int, 4> center_squares = {27, 28, 35, 36}; // d4, e4, d5, e5
+    double score = 0;
+
+    for (auto color : {WHITE, BLACK}) {
+        int control = 0;
+        for (int sq : center_squares) {
+            auto attackers = board.attackers(color, sq);
+            control += attackers.size();
+        }
+        score += (color == WHITE ? control : -control) * 5;
+    }
+
+    return score;
+}
+bool is_outpost(const chess::Board& board, int sq, Color color) {
+    int rank = sq / 8;
+    int file = sq % 8;
+
+    // Check if square is protected by pawn
+    auto friend_pawn_attack = board.attackers(color, sq);
+    if (friend_pawn_attack.empty()) return false;
+
+    Color opp = (color == WHITE) ? BLACK : WHITE;
+    auto opp_pawn_attack = board.attackers(opp, sq);
+
+    for (auto s : opp_pawn_attack)
+        if (board.piece_at(s)->piece_type == PAWN)
+            return false;
+
+    return true;
+}
+
+double eval_outposts(const chess::Board& board) {
+    double score = 0;
+    for (auto color : {WHITE, BLACK}) {
+        auto knights = board.pieces(KNIGHT, color);
+        auto bishops = board.pieces(BISHOP, color);
+
+        for (int sq : knights) {
+            if (is_outpost(board, sq, color))
+                score += (color == WHITE ? 10 : -10);
+        }
+        for (int sq : bishops) {
+            if (is_outpost(board, sq, color))
+                score += (color == WHITE ? 6 : -6);
+        }
+    }
+    return score;
+}
 
 double eval_pst(chess::Board board) {
     double mg = game_phase(board);  
@@ -393,24 +516,17 @@ double evaluate(chess::Board board) {
         return board.turn == WHITE ? -MATE_SCORE : MATE_SCORE;
     }
 
-    if (board.is_stalemate() ||
-        board.is_insufficient_material() ||
-        board.is_fivefold_repetition()) {
+    if (board.is_stalemate() || board.is_insufficient_material() || board.is_fivefold_repetition()) {
         return 0;
     }
 
     double total = 0;
     total += eval_pst(board);
-    // total += W_MOBILITY * eval_mobility(board);
-    // total += W_KING_SAFETY * eval_king_safety(board);
-    // total += eval_pawn_structure(board);
-    // total += eval_bishop_pair(board);
-    // total += W_CENTER_CONTROL * eval_center_control(board);
-    // total += eval_rook_open(board);
-    // total += eval_outposts(board);
-    // total += eval_tropism(board);
-    // total += eval_space(board);
-    // total += eval_threats(board);
+    total += W_MOBILITY       * eval_mobility(board);
+    total += W_KING_SAFETY    * eval_king_safety(board);
+    total += W_PAWN_STRUCTURE * eval_pawn_structure(board);
+    total += W_CENTER_CONTROL * eval_center_control(board);
+    total += W_OUTPOST        * eval_outposts(board);
 
     return total;
 }
